@@ -51,14 +51,13 @@ def converter_condicional_recursao_cauda(stmt, func):
     return stmt
 
 #Criar função que detecta se uma recursão é de cauda
-def is_tail_recursive(func_node):
+def is_recursive(func_node, func_name=None):
     """
     Detecta se uma função é recursiva de cauda.
     :param func_node: ast.FunctionDef
     :return: bool
     """
-    func_name = func_node.name
-    for stmt in func_node.body:
+    for stmt in ast.walk(func_node):
         # Procura por um return no final do corpo da função
         if isinstance(stmt, ast.Return):
             # Verifica se o return é uma chamada à própria função
@@ -66,6 +65,11 @@ def is_tail_recursive(func_node):
                 if stmt.value.func.id == func_name:
                     return True
     return False
+
+def encontrar_condicao_parada(node):
+    if isinstance(node, ast.If):
+        return node.test
+    return None
 
 class UpperCaseFunctionNames(ast.NodeTransformer):
     #adiciona "_tco" ao nome da função
@@ -85,28 +89,25 @@ class UpperCaseFunctionNames(ast.NodeTransformer):
         node.value = ast.Constant(value="teste")
         return node
 
-def encontrar_condicao_parada(node):
-    if isinstance(node, ast.If):
-        return node.test
-    return None
-
 with open('../recursive_functions/tail/factorial.py') as file:
     source_code = file.read()
     
     tree = ast.parse(source_code)
     print(ast.unparse(tree))
-    # is_tail = is_tail_recursive(tree.body[0])
+    
+    is_tail = is_tail_recursive(tree, func_name=tree.body[0].name)
+    print("É recursiva? \n", is_tail, "\n", ast.dump(tree.body[0], indent=4))
 
-    # print("É recursiva? ", is_tail, tree.body[0])
-    print("STMT: ", ast.unparse(tree.body[0].body[0]))
-    print("FUNC: ", ast.unparse(tree.body[0]))
-    
-    new_code = converter_condicional_recursao_cauda(tree.body[0].body[0], tree.body[0])
-    ast.fix_missing_locations(new_code)
-    #print("Novo código: ", ast.unparse(new_code))
-    
+
     #trabalhar nessa função
     #condicao_parada=encontrar_condicao_parada(tree.body[0].body[0])
+
+
+    #print("STMT: ", ast.unparse(tree.body[0].body[0]))
+    #print("FUNC: ", ast.unparse(tree.body[0]))
+    #new_code = converter_condicional_recursao_cauda(tree.body[0].body[0], tree.body[0])
+    #ast.fix_missing_locations(new_code)
+    #print("Novo código: ", ast.unparse(new_code))
 
 
     #print("Árvore sintática: ", ast.dump(tree, indent=4)) #visualizar estrutura da árvore sintática
