@@ -1,7 +1,5 @@
 import ast
 
-#pesquisar se instanciação pos-modificação é possivel ou é necessario criar um "clone" da arvore
-
 def converter_condicional_recursao_cauda(stmt, func):
     if isinstance(stmt, ast.If):
         # Extrai a condição do if
@@ -50,11 +48,6 @@ def converter_condicional_recursao_cauda(stmt, func):
                 body=[while_loop, true_block],
                 type_ignores=[]
             )
-        
-        # Cria a estrutura de atribuição para o bloco verdadeiro
-    
-
-        # Cria a estrutura while com a condição e o corpo verdadeiro
     return stmt
 
 #Criar função que detecta se uma recursão é de cauda
@@ -66,7 +59,6 @@ def is_tail_recursive(func_node):
     """
     func_name = func_node.name
     for stmt in func_node.body:
-        print("STMT: ", stmt)
         # Procura por um return no final do corpo da função
         if isinstance(stmt, ast.Return):
             # Verifica se o return é uma chamada à própria função
@@ -76,16 +68,19 @@ def is_tail_recursive(func_node):
     return False
 
 class UpperCaseFunctionNames(ast.NodeTransformer):
+    #adiciona "_tco" ao nome da função
     def visit_FunctionDef(self, node):
         node.name = node.name+"_tco"
         self.generic_visit(node)
         return node
     
+    #converte strings para maiúsculas
     def visit_Constant(self, node):
         if isinstance(node.value, str):
             node.value = node.value.upper()
         return node
     
+    #substitui o valor de retorno por "teste"
     def visit_Return(self, node):
         node.value = ast.Constant(value="teste")
         return node
@@ -103,30 +98,17 @@ with open('../recursive_functions/tail/factorial.py') as file:
     # is_tail = is_tail_recursive(tree.body[0])
 
     # print("É recursiva? ", is_tail, tree.body[0])
-
-    #print("Árvore sintática: ", ast.dump(tree, indent=4))
+    print("STMT: ", ast.unparse(tree.body[0].body[0]))
+    print("FUNC: ", ast.unparse(tree.body[0]))
+    
     new_code = converter_condicional_recursao_cauda(tree.body[0].body[0], tree.body[0])
     ast.fix_missing_locations(new_code)
-    print("Novo código: ", ast.unparse(new_code))
+    #print("Novo código: ", ast.unparse(new_code))
     
-    #print("BODY 1: ", tree.body[1].orelse)
-
+    #trabalhar nessa função
     #condicao_parada=encontrar_condicao_parada(tree.body[0].body[0])
 
-    #estrutura_while = ast.While(
-    #    test=condicao_parada,
-    #    body=[
-    #        ast.Break()
-    #    ],
-    #    orelse=[]
-    #)
 
-    # transformer = UpperCaseFunctionNames()
-    # tree = transformer.visit(tree)
-
-    # print("Código fonte: ", source_code)
-    # print("____________________________")
-    #print("Árvore sintática: ", ast.dump(tree, indent=4))
-    # print("____________________________")
-    # print("Dados convertidos: ", ast.unparse(tree))
+    #print("Árvore sintática: ", ast.dump(tree, indent=4)) #visualizar estrutura da árvore sintática
+    # print("Dados convertidos: ", ast.unparse(tree)) #visualizar código convertido
     
