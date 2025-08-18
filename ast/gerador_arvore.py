@@ -51,6 +51,7 @@ def converter_condicional_recursao_cauda(stmt, func):
     return stmt
 
 #Criar função que detecta se uma recursão é de cauda
+#Generalizar a função para detectar recursão sem cauda
 def is_recursive(func_node, func_name=None):
     """
     Detecta se uma função é recursiva de cauda.
