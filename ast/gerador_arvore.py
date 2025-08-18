@@ -95,7 +95,7 @@ with open('../recursive_functions/tail/factorial.py') as file:
     tree = ast.parse(source_code)
     print(ast.unparse(tree))
     
-    is_tail = is_tail_recursive(tree, func_name=tree.body[0].name)
+    is_tail = is_recursive(tree, func_name=tree.body[0].name)
     print("É recursiva? \n", is_tail, "\n", ast.dump(tree.body[0], indent=4))
 
 
