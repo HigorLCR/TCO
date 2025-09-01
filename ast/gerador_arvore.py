@@ -3,10 +3,10 @@ import ast
 def converter_condicional_recursao_cauda(stmt, func):
     if isinstance(stmt, ast.If):
         # Extrai a condição do if
-        condition = stmt.test
+        condition = find_stop_condition(stmt)
         
         # Extrai o corpo do if (bloco verdadeiro)
-        true_block = stmt.body
+        stop_condition_block = find_stop_condition_return(stmt)
         
         # Extrai o corpo do else (bloco falso), se existir
         false_block = stmt.orelse if stmt.orelse else []
@@ -45,17 +45,15 @@ def converter_condicional_recursao_cauda(stmt, func):
             )
 
             return ast.Module(
-                body=[while_loop, true_block],
+                body=[while_loop, stop_condition_block],
                 type_ignores=[]
             )
     return stmt
 
-#Criar função que detecta se uma recursão é de cauda
-#Generalizar a função para detectar recursão sem cauda
 def is_recursive(func_node, func_name=None):
     """
-    Detecta se uma função é recursiva de cauda.
-    :param func_node: ast.FunctionDef
+    Detecta se uma função é recursiva.
+    :param func_node: ast.FunctionDef, func_name: str
     :return: bool
     """
     for stmt in ast.walk(func_node):
@@ -67,9 +65,35 @@ def is_recursive(func_node, func_name=None):
                     return True
     return False
 
-def encontrar_condicao_parada(node):
-    if isinstance(node, ast.If):
-        return node.test
+#verificar consistência
+def is_tail_recursive(func_node, func_name=None):
+    """
+    Detecta se uma função é recursiva de cauda.
+    :param func_node: ast.FunctionDef, func_name: str
+    :return: bool
+    """
+    for stmt in ast.walk(func_node):
+        # Procura por um return no final do corpo da função
+        if isinstance(stmt, ast.Return):
+            for arg in ast.walk(stmt):
+                if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name):
+                    if arg.func.id == func_name:
+                        return True
+    return False
+
+#Fazer identificação pra garantir que é a condição de parada
+def find_stop_condition(node):
+    for stmt in ast.walk(node):
+        if isinstance(stmt, ast.If):
+            return stmt.test
+    return None
+
+#Fazer identificação pra garantir que é a condição de parada
+def find_stop_condition_return(node):
+    for stmt in ast.walk(node):
+        if isinstance(stmt, ast.Return):
+            if not (isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == node.name):
+                return stmt.value
     return None
 
 class UpperCaseFunctionNames(ast.NodeTransformer):
@@ -96,8 +120,14 @@ with open('../recursive_functions/tail/factorial.py') as file:
     tree = ast.parse(source_code)
     print(ast.unparse(tree))
     
-    is_tail = is_recursive(tree, func_name=tree.body[0].name)
-    print("É recursiva? \n", is_tail, "\n", ast.dump(tree.body[0], indent=4))
+    isRecursive = is_recursive(tree, func_name=tree.body[0].name)
+    isTail = is_tail_recursive(tree, func_name=tree.body[0].name)
+    print("É recursiva? \n", isRecursive, "\n")
+    print("É tail? \n", isTail, "\n")
+    
+    print("Condição de parada: \n", ast.unparse(find_stop_condition(tree)), "\n")
+    print("Corpo da condição de parada: \n", ast.unparse(find_stop_condition_return(tree)), "\n")
+    #print("Estrutura da árvore: \n", ast.dump(tree.body[0], indent=4), "\n")
 
 
     #trabalhar nessa função
