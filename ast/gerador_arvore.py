@@ -50,9 +50,9 @@ def converter_condicional_recursao_cauda(stmt, func):
             )
     return stmt
 
-def is_recursive(func_node, func_name=None):
+def is_tail_recursive(func_node, func_name=None):
     """
-    Detecta se uma função é recursiva.
+    Detecta se uma função é recursiva de cauda.
     :param func_node: ast.FunctionDef, func_name: str
     :return: bool
     """
@@ -66,9 +66,10 @@ def is_recursive(func_node, func_name=None):
     return False
 
 #verificar consistência
-def is_tail_recursive(func_node, func_name=None):
+def is_recursive(func_node, func_name=None):
+    
     """
-    Detecta se uma função é recursiva de cauda.
+    Detecta se uma função é recursiva.
     :param func_node: ast.FunctionDef, func_name: str
     :return: bool
     """
@@ -94,6 +95,17 @@ def find_stop_condition_return(node):
         if isinstance(stmt, ast.Return):
             if not (isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == node.name):
                 return stmt.value
+    return None
+
+#checar
+def find_recursive_block(node, func_name):
+    for stmt in ast.walk(node):
+        if isinstance(stmt, ast.If):
+            for true_block in ast.walk(stmt):
+                #identifica o bloco com recursão
+                is_true_block_recursive = is_recursive(true_block, func_name)
+                if is_true_block_recursive:
+                    return true_block
     return None
 
 class UpperCaseFunctionNames(ast.NodeTransformer):
@@ -138,7 +150,7 @@ with open('../recursive_functions/tail/factorial.py') as file:
     #print("FUNC: ", ast.unparse(tree.body[0]))
     #new_code = converter_condicional_recursao_cauda(tree.body[0].body[0], tree.body[0])
     #ast.fix_missing_locations(new_code)
-    #print("Novo código: ", ast.unparse(new_code))
+    #print("\nNovo código: \n", ast.unparse(new_code))
 
 
     #print("Árvore sintática: ", ast.dump(tree, indent=4)) #visualizar estrutura da árvore sintática
