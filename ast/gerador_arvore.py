@@ -1,4 +1,5 @@
 import ast
+import argparse
 
 def converter_condicional_recursao_cauda(stmt, func):
     if isinstance(stmt, ast.If):
@@ -125,20 +126,30 @@ class UpperCaseFunctionNames(ast.NodeTransformer):
     def visit_Return(self, node):
         node.value = ast.Constant(value="teste")
         return node
+    
+parser = argparse.ArgumentParser()
+parser.add_argument('arquivo', help='Nome do arquivo de código fonte (dentro da pasta tail)')
+parser.add_argument('-dump', action='store_true', help='Exibe detalhes da análise')
+parser.add_argument('-nt', action='store_true', help='Indica que a função não é de cauda')
+args = parser.parse_args()
+print(args)
 
-with open('../recursive_functions/tail/factorial.py') as file:
+with open(f'../recursive_functions/{'non_tail' if args.nt else 'tail'}/{args.arquivo}') as file:
     source_code = file.read()
     
     tree = ast.parse(source_code)
-    print(ast.unparse(tree))
+    
     
     isRecursive = is_recursive(tree, func_name=tree.body[0].name)
     isTail = is_tail_recursive(tree, func_name=tree.body[0].name)
-    print("É recursiva? \n", isRecursive, "\n")
-    print("É tail? \n", isTail, "\n")
+
+    if args.dump:
+        print(ast.unparse(tree))
+        print("É recursiva? \n", isRecursive, "\n")
+        print("É tail? \n", isTail, "\n")
     
-    print("Condição de parada: \n", ast.unparse(find_stop_condition(tree)), "\n")
-    print("Corpo da condição de parada: \n", ast.unparse(find_stop_condition_return(tree)), "\n")
+        print("Condição de parada: \n", ast.unparse(find_stop_condition(tree)), "\n")
+        print("Corpo da condição de parada: \n", ast.unparse(find_stop_condition_return(tree)), "\n")
     #print("Estrutura da árvore: \n", ast.dump(tree.body[0], indent=4), "\n")
 
 
