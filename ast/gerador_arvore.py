@@ -176,6 +176,7 @@ parser.add_argument('-dump', action='store_true', help='Exibe detalhes da análi
 parser.add_argument('-nt', action='store_true', help='Indica que a função não é de cauda')
 args = parser.parse_args()
 
+source_code = ""
 with open(f'../recursive_functions/{'non_tail' if args.nt else 'tail'}/{args.arquivo}') as file:
     source_code = file.read()
     tree = ast.parse(source_code)
@@ -203,4 +204,9 @@ with open(f'../recursive_functions/{'non_tail' if args.nt else 'tail'}/{args.arq
         print("\nÁrvore sintática: \n", ast.dump(tree, indent=4)) 
         
         print("\nNova árvore sintática: \n", ast.dump(new_code, indent=4))
+
+with open(f'output_{args.arquivo}', 'w') as file:
+    file.write(ast.unparse(new_code))
+
+
     
