@@ -42,7 +42,8 @@ def convert_tail_recursive_to_loop(tree, func_name):
     recursive_if = find_recursive_if_block(tree, func_name)
 
     #arguments da função
-    signature_args = find_signature_args(tree, func_name)
+    signature = find_signature(tree, func_name)
+    print("SIG: ", ast.unparse(signature))
 
     #argumentos passados na recursão
     recursion_args = find_recursion_args(recursive_if["recursive_block"], func_name)
@@ -73,8 +74,8 @@ def convert_tail_recursive_to_loop(tree, func_name):
                 ast.Assign(
                     targets=[ast.Tuple(
                         elts=[
-                            ast.Name(id=signature_args.args[0].arg, ctx=ast.Store()),
-                            ast.Name(id=signature_args.args[1].arg, ctx=ast.Store())
+                            ast.Name(id=signature.args.args[0].arg, ctx=ast.Store()),
+                            ast.Name(id=signature.args.args[1].arg, ctx=ast.Store())
                         ],
                         ctx=ast.Store()
                     )],
@@ -89,8 +90,10 @@ def convert_tail_recursive_to_loop(tree, func_name):
             ],
             orelse=[] #false_block
         )
+
+        signature.body = [while_loop, stop_condition_block]
         return ast.Module(
-            body=[while_loop, stop_condition_block],
+            body=[signature],
             type_ignores=[]
         )
     return tree
@@ -135,10 +138,10 @@ def find_recursion_args(nodes, func_name):
                         return arg.args
     return None
 
-def find_signature_args(nodes, func_name):
+def find_signature(nodes, func_name):
     for stmt in nodes:
         if isinstance(stmt, ast.FunctionDef) and stmt.name == func_name:
-            return stmt.args
+            return stmt
     return None
 
 def find_recursive_if_block(nodes, func_name):
