@@ -43,7 +43,7 @@ def convert_tail_recursive_to_loop(tree, func_name):
 
     #arguments da função
     signature = find_signature(tree, func_name)
-    print("SIG: ", ast.unparse(signature))
+    print("SIG: ", ast.dump(signature, indent=4))
 
     #argumentos passados na recursão
     recursion_args = find_recursion_args(recursive_if["recursive_block"], func_name)
@@ -73,17 +73,11 @@ def convert_tail_recursive_to_loop(tree, func_name):
                 false_block[:-1], 
                 ast.Assign(
                     targets=[ast.Tuple(
-                        elts=[
-                            ast.Name(id=signature.args.args[0].arg, ctx=ast.Store()),
-                            ast.Name(id=signature.args.args[1].arg, ctx=ast.Store())
-                        ],
+                        elts=[ast.Name(argument.arg, ctx=ast.Store()) for argument in signature.args.args],
                         ctx=ast.Store()
                     )],
                     value=ast.Tuple(
-                        elts=[
-                            recursion_args[0],
-                            recursion_args[1]
-                        ],
+                        elts=[recursion_argument for recursion_argument in recursion_args],
                         ctx=ast.Load()
                     )
                 )
