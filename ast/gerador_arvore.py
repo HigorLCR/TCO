@@ -40,10 +40,10 @@ class FullVisitor(ast.NodeVisitor):
 
 def convert_tail_recursive_to_loop(tree, func_name):
     recursive_if = find_recursive_if_block(tree, func_name)
+    initial_block = find_initial_block(tree, recursive_if, func_name)
 
     #arguments da função
     signature = find_signature(tree, func_name)
-    print("SIG: ", ast.dump(signature, indent=4))
 
     #argumentos passados na recursão
     recursion_args = find_recursion_args(recursive_if["recursive_block"], func_name)
@@ -51,10 +51,10 @@ def convert_tail_recursive_to_loop(tree, func_name):
     # Extrai a condição do if
     condition = recursive_if["stop_condition"]
     
-    # Extrai o corpo do if (bloco verdadeiro)
+    # Extrai o corpo da condição de parada
     stop_condition_block = recursive_if["stop_condition_block"]
     
-    # Extrai o corpo do else (bloco falso), se existir
+    # Extrai o corpo do bloco recursivo
     false_block = recursive_if["recursive_block"]
 
     last_stmt = false_block[-1]
@@ -70,6 +70,7 @@ def convert_tail_recursive_to_loop(tree, func_name):
                 operand=condition
             ),
             body=[
+                [block for block in initial_block],
                 false_block[:-1], 
                 ast.Assign(
                     targets=[ast.Tuple(
@@ -85,7 +86,7 @@ def convert_tail_recursive_to_loop(tree, func_name):
             orelse=[] #false_block
         )
 
-        signature.body = [while_loop, stop_condition_block]
+        signature.body = [while_loop, [block for block in initial_block], stop_condition_block]
         return ast.Module(
             body=[signature],
             type_ignores=[]
@@ -123,6 +124,17 @@ def is_function_recursive(func_node, func_name=None):
                         return True
     return False
 
+def find_initial_block(nodes, recursive_if, func_name):
+    initial_block = []
+    for node in nodes:
+        if isinstance(node, ast.Module):
+            for  stmt_1 in node.body:
+                if isinstance(stmt_1, ast.FunctionDef) and stmt_1.name == func_name:
+                    for stmt_2 in stmt_1.body:
+                        if ast.dump(recursive_if['if'], include_attributes=True) != ast.dump(stmt_2, include_attributes=True):
+                            initial_block.append(stmt_2)
+    return initial_block
+
 def find_recursion_args(nodes, func_name):
     for stmt in nodes:
         if isinstance(stmt, ast.Return):
@@ -153,12 +165,14 @@ def find_recursive_if_block(nodes, func_name):
             
             if is_true_block_recursive:
                 return { 
+                    "if": stmt,
                     "recursive_block": stmt.body, 
                     "stop_condition_block": stmt.orelse, 
                     "stop_condition": stmt.test 
                 }
             elif is_false_block_recursive:  
                 return { 
+                    "if": stmt,
                     "recursive_block": stmt.orelse, 
                     "stop_condition_block": stmt.body, 
                     "stop_condition": stmt.test 
@@ -204,6 +218,3 @@ with open(f'../recursive_functions/{'non_tail' if args.nt else 'tail'}/{args.arq
 
 with open(f'output_{args.arquivo}', 'w') as file:
     file.write(ast.unparse(new_code))
-
-
-    
