@@ -12,6 +12,7 @@ def tail_gcd(a, b):
     
     return gcd_helper(a, b)
 
+
 def tail_mdc(a, b, c):
     a, b = abs(a), abs(b)
 
