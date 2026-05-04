@@ -38,60 +38,87 @@ class FullVisitor(ast.NodeVisitor):
     def get_nodes(self):
         return self.nodes
 
+def flatten_elif_chain(recursive_block, func_name):
+    conditions = []
+    base_blocks = []
+    current = recursive_block
+
+    while True:
+        if len(current) == 1 and isinstance(current[0], ast.If):
+            node = current[0]
+            false_recursive = any(is_function_recursive(n, func_name) for n in node.orelse)
+            true_recursive = any(is_function_recursive(n, func_name) for n in node.body)
+
+            if false_recursive:
+                conditions.append(node.test)
+                base_blocks.append(node.body)
+                current = node.orelse
+            elif true_recursive:
+                conditions.append(ast.UnaryOp(op=ast.Not(), operand=node.test))
+                base_blocks.append(node.orelse)
+                current = node.body
+            else:
+                return conditions, base_blocks, None, []
+        else:
+            args = find_recursion_args(current, func_name)
+            prefix = [s for s in current if not isinstance(s, ast.Return)]
+            return conditions, base_blocks, args, prefix
+
+def build_post_loop_block(conditions, base_blocks):
+    if len(conditions) == 1:
+        return base_blocks[0]
+    orelse = base_blocks[-1]
+    for cond, block in zip(reversed(conditions[:-1]), reversed(base_blocks[:-1])):
+        orelse = [ast.If(test=cond, body=block, orelse=orelse)]
+    return orelse
+
 def convert_tail_recursive_to_loop(tree, func_name):
     recursive_if = find_recursive_if_block(tree, func_name)
     initial_block = find_initial_block(tree, recursive_if, func_name)
-
-    #arguments da função
     signature = find_signature(tree, func_name)
 
-    #argumentos passados na recursão
-    recursion_args = find_recursion_args(recursive_if["recursive_block"], func_name)
-
-    # Extrai a condição do if
-    condition = recursive_if["stop_condition"]
-    
-    # Extrai o corpo da condição de parada
-    stop_condition_block = recursive_if["stop_condition_block"]
-    
-    # Extrai o corpo do bloco recursivo
     false_block = recursive_if["recursive_block"]
+    first_condition = recursive_if["stop_condition"]
+    first_base_block = recursive_if["stop_condition_block"]
 
-    last_stmt = false_block[-1]
-    if (
-        isinstance(last_stmt, ast.Return) and 
-        isinstance(last_stmt.value, ast.Call) and 
-        isinstance(last_stmt.value.func, ast.Name) and
-        last_stmt.value.func.id == func_name
-    ):
-        while_loop = ast.While(
-            test=ast.UnaryOp(
-                op = ast.Not(),
-                operand=condition
-            ),
-            body=[
-                [block for block in initial_block],
-                false_block[:-1], 
-                ast.Assign(
-                    targets=[ast.Tuple(
-                        elts=[ast.Name(argument.arg, ctx=ast.Store()) for argument in signature.args.args],
-                        ctx=ast.Store()
-                    )],
-                    value=ast.Tuple(
-                        elts=[recursion_argument for recursion_argument in recursion_args],
-                        ctx=ast.Load()
-                    )
+    elif_conditions, elif_base_blocks, recursion_args, prefix = flatten_elif_chain(false_block, func_name)
+
+    if recursion_args is None:
+        return tree
+
+    all_conditions = [first_condition] + elif_conditions
+    all_base_blocks = [first_base_block] + elif_base_blocks
+
+    if len(all_conditions) == 1:
+        while_test = ast.UnaryOp(op=ast.Not(), operand=all_conditions[0])
+    else:
+        while_test = ast.UnaryOp(
+            op=ast.Not(),
+            operand=ast.BoolOp(op=ast.Or(), values=all_conditions)
+        )
+
+    while_loop = ast.While(
+        test=while_test,
+        body=[
+            *initial_block,
+            *prefix,
+            ast.Assign(
+                targets=[ast.Tuple(
+                    elts=[ast.Name(arg.arg, ctx=ast.Store()) for arg in signature.args.args],
+                    ctx=ast.Store()
+                )],
+                value=ast.Tuple(
+                    elts=list(recursion_args),
+                    ctx=ast.Load()
                 )
-            ],
-            orelse=[] #false_block
-        )
+            )
+        ],
+        orelse=[]
+    )
 
-        signature.body = [while_loop, [block for block in initial_block], stop_condition_block]
-        return ast.Module(
-            body=[signature],
-            type_ignores=[]
-        )
-    return tree
+    post_loop = build_post_loop_block(all_conditions, all_base_blocks)
+    signature.body = [*initial_block, while_loop, *post_loop]
+    return ast.Module(body=[signature], type_ignores=[])
 
 def is_function_tail_recursive(func_node, func_name=None):
     """
