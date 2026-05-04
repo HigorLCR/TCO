@@ -38,9 +38,9 @@ class FullVisitor(ast.NodeVisitor):
     def get_nodes(self):
         return self.nodes
 
-def flatten_elif_chain(recursive_block, func_name):
-    conditions = []
-    base_blocks = []
+def collect_condition_data(recursive_block, func_name):
+    stop_conditions = []
+    stop_condition_blocks = []
     current = recursive_block
 
     while True:
@@ -50,25 +50,25 @@ def flatten_elif_chain(recursive_block, func_name):
             true_recursive = any(is_function_recursive(n, func_name) for n in node.body)
 
             if false_recursive:
-                conditions.append(node.test)
-                base_blocks.append(node.body)
+                stop_conditions.append(node.test)
+                stop_condition_blocks.append(node.body)
                 current = node.orelse
             elif true_recursive:
-                conditions.append(ast.UnaryOp(op=ast.Not(), operand=node.test))
-                base_blocks.append(node.orelse)
+                stop_conditions.append(ast.UnaryOp(op=ast.Not(), operand=node.test))
+                stop_condition_blocks.append(node.orelse)
                 current = node.body
             else:
-                return conditions, base_blocks, None, []
+                return stop_conditions, stop_condition_blocks, None, []
         else:
             args = find_recursion_args(current, func_name)
-            prefix = [s for s in current if not isinstance(s, ast.Return)]
-            return conditions, base_blocks, args, prefix
+            recursion_prefix = [s for s in current if not isinstance(s, ast.Return)]
+            return stop_conditions, stop_condition_blocks, args, recursion_prefix
 
-def build_post_loop_block(conditions, base_blocks):
-    if len(conditions) == 1:
-        return base_blocks[0]
-    orelse = base_blocks[-1]
-    for cond, block in zip(reversed(conditions[:-1]), reversed(base_blocks[:-1])):
+def build_post_loop_block(stop_conditions, stop_condition_blocks):
+    if len(stop_conditions) == 1:
+        return stop_condition_blocks[0]
+    orelse = stop_condition_blocks[-1]
+    for cond, block in zip(reversed(stop_conditions[:-1]), reversed(stop_condition_blocks[:-1])):
         orelse = [ast.If(test=cond, body=block, orelse=orelse)]
     return orelse
 
@@ -77,31 +77,24 @@ def convert_tail_recursive_to_loop(tree, func_name):
     initial_block = find_initial_block(tree, recursive_if, func_name)
     signature = find_signature(tree, func_name)
 
-    false_block = recursive_if["recursive_block"]
-    first_condition = recursive_if["stop_condition"]
-    first_base_block = recursive_if["stop_condition_block"]
-
-    elif_conditions, elif_base_blocks, recursion_args, prefix = flatten_elif_chain(false_block, func_name)
+    stop_conditions, stop_condition_blocks, recursion_args, recursion_prefix = collect_condition_data([recursive_if["if"]], func_name)
 
     if recursion_args is None:
         return tree
 
-    all_conditions = [first_condition] + elif_conditions
-    all_base_blocks = [first_base_block] + elif_base_blocks
-
-    if len(all_conditions) == 1:
-        while_test = ast.UnaryOp(op=ast.Not(), operand=all_conditions[0])
+    if len(stop_conditions) == 1:
+        while_test = ast.UnaryOp(op=ast.Not(), operand=stop_conditions[0])
     else:
         while_test = ast.UnaryOp(
             op=ast.Not(),
-            operand=ast.BoolOp(op=ast.Or(), values=all_conditions)
+            operand=ast.BoolOp(op=ast.Or(), values=stop_conditions)
         )
 
     while_loop = ast.While(
         test=while_test,
         body=[
             *initial_block,
-            *prefix,
+            *recursion_prefix,
             ast.Assign(
                 targets=[ast.Tuple(
                     elts=[ast.Name(arg.arg, ctx=ast.Store()) for arg in signature.args.args],
@@ -116,7 +109,7 @@ def convert_tail_recursive_to_loop(tree, func_name):
         orelse=[]
     )
 
-    post_loop = build_post_loop_block(all_conditions, all_base_blocks)
+    post_loop = build_post_loop_block(stop_conditions, stop_condition_blocks)
     signature.body = [*initial_block, while_loop, *post_loop]
     return ast.Module(body=[signature], type_ignores=[])
 
