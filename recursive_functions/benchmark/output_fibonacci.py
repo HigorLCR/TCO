@@ -6,4 +6,4 @@ def tail_fibonacci(n, a=1, b=1):
     else:
         return b
     
-tail_fibonacci(1000000)
+tail_fibonacci(500000)
