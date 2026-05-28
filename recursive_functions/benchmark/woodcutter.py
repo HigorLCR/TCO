@@ -11,8 +11,7 @@ def woodcutter(t, wood, lower, upper):
             return lower
     elif wood_collected > wood:
         return woodcutter(t, wood, middle_h, upper)
-    else:
-        return woodcutter(t, wood, lower, middle_h - 1)
+ 
 
 
 import timeit

@@ -13,3 +13,14 @@ def woodcutter(t, wood, lower, upper):
         return woodcutter(t, wood, middle_h, upper)
     else:
         return woodcutter(t, wood, lower, middle_h - 1)
+
+
+
+import timeit
+
+qtd_execucoes = 100
+tempo = timeit.timeit(
+    lambda: woodcutter(arvores, madeira, altura_minima, altura_maxima),
+    number=qtd_execucoes
+)
+print(f"tempo médio de {qtd_execucoes}: {tempo:.4f}s total | {tempo/qtd_execucoes*1000:.4f}ms por chamada")
