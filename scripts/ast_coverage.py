@@ -15,7 +15,7 @@ from pathlib import Path
 # 107 nos recomendados, organizados por categoria
 TARGET_NODES: dict[str, list[str]] = {
     "mod": [
-        "Module",
+        "Module", "Interactive", "Expression", "FunctionType",
     ],
     "stmt": [
         "FunctionDef", "AsyncFunctionDef", "ClassDef",
