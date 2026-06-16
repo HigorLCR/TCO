@@ -48,14 +48,10 @@ def run_script(path: Path, timeout: int) -> dict:
         output = proc.stdout + proc.stderr
         match = TIMING_RE.search(output)
         if match:
-            linha = (f"tempo medio de {match.group(1)}: "
-                     f"{match.group(2)}s total | "
-                     f"{match.group(3)}ms por chamada")
             base.update({
                 "qtd_execucoes": int(match.group(1)),
                 "tempo_total_s": float(match.group(2)),
                 "tempo_ms_por_chamada": float(match.group(3)),
-                "linha": linha,
                 "status": "ok",
             })
         elif proc.returncode != 0:
@@ -95,7 +91,7 @@ def run(directory: Path, output_file: Path, timeout: int) -> None:
         results.append(row)
 
         if row["status"] == "ok":
-            print(f"           {row['linha']}\n")
+            print(f"           qtd_execucoes: {row['qtd_execucoes']}   |   tempo_total: {row['tempo_total_s']:.4f}s   |   ms_por_chamada: {row['tempo_ms_por_chamada']:.4f}\n")
             ok += 1
         elif row["status"] == "sem_timing":
             print("           (sem linha de timing)\n")
