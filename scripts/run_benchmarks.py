@@ -2,10 +2,10 @@
 Executa todos os scripts de benchmark em um diretorio e coleta os tempos.
 
 Uso:
-    python run_benchmarks.py [diretorio] [--output arquivo.csv]
+    python scripts/run_benchmarks.py [diretorio] [--output arquivo.csv] [--timeout segundos]
 
 Padrao: recursive_functions/benchmark/
-Saida:  benchmark_results.csv
+Saida:  benchmark_results.csv (na raiz do projeto)
 """
 
 import csv
@@ -101,20 +101,17 @@ def run(directory: Path, output_file: Path, timeout: int) -> None:
             print(f"  {row['status']}")
             erros += 1
 
-    # Salva CSV
     fieldnames = ["arquivo", "tipo", "qtd_execucoes", "tempo_total_s", "tempo_ms_por_chamada", "status"]
     with open(output_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(results)
 
-    # Resumo
     print(f"\n{SEP}")
     print(f"  Resultado : {ok} ok | {sem_timing} sem timing | {erros} erros")
     print(f"  Salvo em  : {output_file}")
     print(SEP)
 
-    # Tabela por tipo
     tipos = ["recursivo", "nonrec", "output"]
     print("\nMedia por tipo (scripts com timing):\n")
     for tipo in tipos:
@@ -125,9 +122,9 @@ def run(directory: Path, output_file: Path, timeout: int) -> None:
 
 
 if __name__ == "__main__":
-    base = Path(__file__).parent
-    args = sys.argv[1:]
+    base = Path(__file__).parent.parent  # sobe de scripts/ para raiz do projeto
 
+    args = sys.argv[1:]
     directory = base / "recursive_functions" / "benchmark"
     output_file = base / "benchmark_results.csv"
     timeout = 120

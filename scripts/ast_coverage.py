@@ -1,10 +1,10 @@
 """
-Mede a cobertura de nós AST de Python em um diretório de arquivos .py.
+Mede a cobertura de nos AST de Python em um diretorio de arquivos .py.
 
 Uso:
-    python ast_coverage.py [diretório]
+    python scripts/ast_coverage.py [diretorio]
 
-Padrão: recursive_functions/benchmark
+Padrao: recursive_functions/benchmark
 Exclui: arquivos com sufixo _nonrec.py e prefixo output_
 """
 
@@ -12,7 +12,7 @@ import ast
 import sys
 from pathlib import Path
 
-# 107 nós recomendados, organizados por categoria
+# 107 nos recomendados, organizados por categoria
 TARGET_NODES: dict[str, list[str]] = {
     "mod": [
         "Module",
@@ -102,7 +102,6 @@ def run(directory: Path) -> None:
         covered_per_file[f.name] = nodes
         all_covered |= nodes
 
-    # ── Cobertura global ───────────────────────────────────────────────────────
     total = len(ALL_TARGET)
     covered = len(all_covered)
     missing = ALL_TARGET - all_covered
@@ -115,12 +114,9 @@ def run(directory: Path) -> None:
     print(f"  Arquivos  : {len(files)}")
     print(f"  Cobertura : {covered}/{total} nos  ({covered/total*100:.1f}%)")
 
-    
-
-    # ── Cobertura por categoria ────────────────────────────────────────────────
     print(f"\n{SEP}")
     print("  Cobertura por categoria")
-    
+    print(f"{SEP}\n")
     for category, nodes in TARGET_NODES.items():
         cat_covered = {n for n in nodes if n in all_covered}
         cat_missing  = [n for n in nodes if n not in all_covered]
@@ -131,17 +127,17 @@ def run(directory: Path) -> None:
         if cat_missing:
             print(f"               faltando: {', '.join(cat_missing)}\n")
 
-    # ── Nós não cobertos (lista completa) ─────────────────────────────────────
     print(f"\n{SEP}")
     print(f"  Nos nao cobertos ({len(missing)})")
+    print(f"{SEP}\n")
     for category, nodes in TARGET_NODES.items():
         uncovered = [n for n in nodes if n in missing]
         if uncovered:
             print(f"  [{category}] {', '.join(uncovered)}")
 
-    # ── Cobertura por arquivo ─────────────────────────────────────────────────
     print(f"\n{SEP}")
     print("  Cobertura por arquivo")
+    print(f"{SEP}\n")
     for fname, nodes in covered_per_file.items():
         pct = len(nodes) / total * 100
         print(f"  {fname:<45} {len(nodes):>3}/{total}  ({pct:5.1f}%)")
@@ -149,7 +145,7 @@ def run(directory: Path) -> None:
 
 
 if __name__ == "__main__":
-    base = Path(__file__).parent
+    base = Path(__file__).parent.parent  # sobe de scripts/ para raiz do projeto
 
     if len(sys.argv) > 1:
         target_dir = Path(sys.argv[1])
@@ -159,7 +155,7 @@ if __name__ == "__main__":
         target_dir = base / "recursive_functions" / "benchmark"
 
     if not target_dir.is_dir():
-        print(f"Diretório não encontrado: {target_dir}")
+        print(f"Diretorio nao encontrado: {target_dir}")
         sys.exit(1)
 
     run(target_dir)
