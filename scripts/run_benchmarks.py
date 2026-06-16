@@ -48,10 +48,14 @@ def run_script(path: Path, timeout: int) -> dict:
         output = proc.stdout + proc.stderr
         match = TIMING_RE.search(output)
         if match:
+            linha = (f"tempo medio de {match.group(1)}: "
+                     f"{match.group(2)}s total | "
+                     f"{match.group(3)}ms por chamada")
             base.update({
                 "qtd_execucoes": int(match.group(1)),
                 "tempo_total_s": float(match.group(2)),
                 "tempo_ms_por_chamada": float(match.group(3)),
+                "linha": linha,
                 "status": "ok",
             })
         elif proc.returncode != 0:
@@ -86,19 +90,18 @@ def run(directory: Path, output_file: Path, timeout: int) -> None:
     ok = erros = sem_timing = 0
 
     for i, f in enumerate(files, 1):
-        label = f"  [{i:>2}/{len(files)}] {f.name:<45}"
-        print(label, end="", flush=True)
+        print(f"  [{i:>2}/{len(files)}] {f.name}", flush=True)
         row = run_script(f, timeout)
         results.append(row)
 
         if row["status"] == "ok":
-            print(f"{row['tempo_ms_por_chamada']:>10.4f} ms/chamada")
+            print(f"           {row['linha']}\n")
             ok += 1
         elif row["status"] == "sem_timing":
-            print("  (sem linha de timing)")
+            print("           (sem linha de timing)\n")
             sem_timing += 1
         else:
-            print(f"  {row['status']}")
+            print(f"           {row['status']}\n")
             erros += 1
 
     fieldnames = ["arquivo", "tipo", "qtd_execucoes", "tempo_total_s", "tempo_ms_por_chamada", "status"]
