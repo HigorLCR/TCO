@@ -2,7 +2,7 @@ import sys
 
 sys.setrecursionlimit(100000)
 
-n1 = 50000
+n1 = 5000
 n2 = 1
 
 def tail_factorial(n, a):

@@ -3,7 +3,7 @@ def tail_factorial(n, a):
         n, a = (n - 1, n * a)
     return a
 
-n1 = 50000
+n1 = 5000
 n2 = 1
 
 import timeit
