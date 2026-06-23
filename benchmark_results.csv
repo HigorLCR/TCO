@@ -37,8 +37,8 @@ MergeSort.py,recursivo,1000,1.3023,1.3023,ok
 MergeSort_nonrec.py,nonrec,1000,2.0839,2.0839,ok
 non_negative_int_contain_digit.py,recursivo,1000,0.454,0.454,ok
 non_negative_int_contain_digit_nonrec.py,nonrec,1000,0.815,0.815,ok
-NumSearchTree.py,recursivo,1000,65.3612,65.3612,ok
-NumSearchTree_nonrec.py,nonrec,,,,timeout (>180s)
+NumSearchTree.py,recursivo,100,6.6261,66.2608,ok
+NumSearchTree_nonrec.py,nonrec,100,47.4089,474.0889,ok
 output_count_bits.py,output,100000,0.0956,0.001,ok
 output_count_matches.py,output,1000,0.8804,0.8804,ok
 output_factorial.py,output,100,0.5632,5.6323,ok
@@ -50,17 +50,17 @@ output_linear_search.py,output,1000,1.0529,1.0529,ok
 output_mdc.py,output,1,0.0002,0.1828,ok
 output_non_negative_int_contain_digit.py,output,1000,0.4041,0.4041,ok
 output_remove_keys.py,output,1000,0.1659,0.1659,ok
-output_sum.py,output,100,26.8376,268.376,ok
+output_sum.py,output,1000,0.502,0.502,ok
 quickselect.py,recursivo,1000,4.9187,4.9187,ok
 quickselect_nonrec.py,nonrec,1000,19.1851,19.1851,ok
 remove_keys.py,recursivo,1000,0.1451,0.1451,ok
 remove_keys_nonrec.py,nonrec,1000,0.2758,0.2758,ok
 safe_parse.py,recursivo,1000,4.6516,4.6516,ok
 safe_parse_nonrec.py,nonrec,1000,2.7964,2.7964,ok
-sum.py,recursivo,100,90.5286,905.2863,ok
+sum.py,recursivo,1000,1.3176,1.3176,ok
 sum_nested.py,recursivo,100000,0.4968,0.005,ok
 sum_nested_nonrec.py,nonrec,100000,1.7126,0.0171,ok
-sum_nonrec.py,nonrec,,,,timeout (>180s)
+sum_nonrec.py,nonrec,1000,3.83,3.83,ok
 valid_bst.py,recursivo,1000,0.1114,0.1114,ok
 valid_bst_nonrec.py,nonrec,1000,0.8961,0.8961,ok
 woodcutter.py,recursivo,100,0.5075,5.0755,ok
