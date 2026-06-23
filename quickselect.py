@@ -43,4 +43,11 @@ def partition_Hoare_wrapper(a, lower, upper):
         a[right] = pivot
 
         return right
-    
+
+# teste
+a = [3, 6, 8, 10, 1, 2, 1]
+k = 4
+print(f"Entrada : {a}, k={k}")
+print(f"Esperado: {sorted(a)[k-1]}")
+resultado = quickselect(list(a), 0, len(a) - 1, k)
+print(f"Resultado: {resultado}")
