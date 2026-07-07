@@ -25,7 +25,7 @@ from pathlib import Path
 
 BASE = Path(__file__).parent.parent
 BENCH = BASE / "recursive_functions" / "benchmark"
-OUT = BASE / "node_matrix.txt"
+OUT = BASE / "arquivos" / "txt" / "node_matrix.txt"
 
 HEADER0 = "NO"
 SEP = "|"
@@ -103,6 +103,7 @@ def main() -> None:
         linhas.append(no + SEP + SEP.join(celulas))
 
     conteudo = "﻿" + EOL.join(linhas) + EOL
+    OUT.parent.mkdir(parents=True, exist_ok=True)
     with open(OUT, "w", encoding="utf-16-le", newline="") as f:
         f.write(conteudo)
 

@@ -5,7 +5,7 @@ Uso:
     python scripts/run_benchmarks.py [diretorio] [--output arquivo.csv] [--timeout segundos]
 
 Padrao: recursive_functions/benchmark/
-Saida:  benchmark_results.csv (na raiz do projeto)
+Saida:  arquivos/csv/benchmark_results.csv
 """
 
 import csv
@@ -101,6 +101,7 @@ def run(directory: Path, output_file: Path, timeout: int) -> None:
             erros += 1
 
     fieldnames = ["arquivo", "tipo", "qtd_execucoes", "tempo_total_s", "tempo_ms_por_chamada", "status"]
+    output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -125,7 +126,7 @@ if __name__ == "__main__":
 
     args = sys.argv[1:]
     directory = base / "recursive_functions" / "benchmark"
-    output_file = base / "benchmark_results.csv"
+    output_file = base / "arquivos" / "csv" / "benchmark_results.csv"
     timeout = 120
 
     i = 0

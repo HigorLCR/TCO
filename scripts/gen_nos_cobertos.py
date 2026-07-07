@@ -25,9 +25,9 @@ import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 
 BASE = Path(__file__).parent.parent
-SAIDA_DIR = BASE / "xlsx"  # diretorio padrao de saida dos xlsx gerados
+SAIDA_DIR = BASE / "arquivos" / "xlsx"  # diretorio padrao de saida dos xlsx gerados
 SAIDA = SAIDA_DIR / "nos_ast_cobertos.xlsx"
-MATRIX = BASE / "node_matrix.txt"
+MATRIX = BASE / "arquivos" / "txt" / "node_matrix.txt"
 
 ABA = "Nós_AST_Cobertos"
 ALTURA = 22.5
@@ -193,7 +193,7 @@ def main() -> None:
     ws.column_dimensions["A"].width = 30
     ws.freeze_panes = "B2"
 
-    SAIDA_DIR.mkdir(exist_ok=True)
+    SAIDA_DIR.mkdir(parents=True, exist_ok=True)
     wb.save(SAIDA)
 
     print(f"Arquivo criado : {SAIDA}")

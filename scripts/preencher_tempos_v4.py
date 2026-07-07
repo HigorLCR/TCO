@@ -33,7 +33,7 @@ import openpyxl
 
 BASE = Path(__file__).parent.parent
 XLSX = BASE / "ling_rec.xlsx"
-CSV = BASE / "benchmark_results.csv"
+CSV = BASE / "arquivos" / "csv" / "benchmark_results.csv"
 BENCH = BASE / "recursive_functions" / "benchmark"
 ABA = "Tempos_Execucao_v4"
 
