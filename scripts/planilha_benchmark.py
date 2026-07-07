@@ -23,7 +23,7 @@ Fontes de dados: arquivos/csv/benchmark_results.csv (tempos) e os .py do
 benchmark (parametros). Metrica: tempo_ms_por_chamada. Ausentes viram '-'.
 
 Uso:
-    python scripts/gen_tempos_execucao.py
+    python scripts/planilha_benchmark.py
 """
 
 import ast

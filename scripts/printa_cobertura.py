@@ -2,7 +2,7 @@
 Mede a cobertura de nos AST de Python em um diretorio de arquivos .py.
 
 Uso:
-    python scripts/ast_coverage.py [diretorio]
+    python scripts/printa_cobertura.py [diretorio]
 
 Padrao: recursive_functions/benchmark
 Exclui: arquivos com sufixo _nonrec.py e prefixo output_
@@ -74,7 +74,7 @@ def is_source_file(path: Path) -> bool:
         name.endswith(".py")
         and not name.endswith("_nonrec.py")
         and not name.startswith("output_")
-        and name != "ast_coverage.py"
+        and name != "printa_cobertura.py"
     )
 
 

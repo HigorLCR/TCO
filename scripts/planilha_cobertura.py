@@ -15,7 +15,7 @@ Gera um arquivo NOVO (nao depende de ling_rec.xlsx). Sem Tabela/ListObject
 uniforme e coluna A sem realces antigos.
 
 Uso:
-    python scripts/gen_nos_cobertos.py
+    python scripts/planilha_cobertura.py
 """
 
 import sys

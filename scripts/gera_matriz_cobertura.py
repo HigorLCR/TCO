@@ -16,7 +16,7 @@ Formato preservado do arquivo original:
     UTF-16-LE com BOM, separador '|', quebras CRLF, 1a celula do cabecalho 'NO'.
 
 Uso:
-    python scripts/gen_node_matrix.py
+    python scripts/gera_matriz_cobertura.py
 """
 
 import ast

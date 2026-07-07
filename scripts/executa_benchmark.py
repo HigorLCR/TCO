@@ -2,7 +2,7 @@
 Executa todos os scripts de benchmark em um diretorio e coleta os tempos.
 
 Uso:
-    python scripts/run_benchmarks.py [diretorio] [--output arquivo.csv] [--timeout segundos]
+    python scripts/executa_benchmark.py [diretorio] [--output arquivo.csv] [--timeout segundos]
 
 Padrao: recursive_functions/benchmark/
 Saida:  arquivos/csv/benchmark_results.csv
