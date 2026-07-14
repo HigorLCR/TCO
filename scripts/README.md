@@ -30,10 +30,10 @@ if _os.environ.get("BENCH_DURACAO") is None:
     tempo = timeit.timeit(lambda: f(args), number=qtd_execucoes)
     print(f"tempo médio de {qtd_execucoes}: ...s total | ...ms por chamada")
 else:
-    # modo POR TEMPO: roda ~T segundos -> execuções (float, normalizado)
-    _bench = _timeit.Timer(lambda: f(args))   # a MESMA chamada
-    ...  # autorange + lote de ~T s + normalização K*(T/E)
-    print(f"execucoes em {T}s: ... | K chamadas em Es")
+    # modo POR TEMPO: T é PISO — itera até a soma dos tempos alcançar >= T s
+    _bench = timeit.Timer(lambda: f(args))    # a MESMA chamada
+    ...  # laço de lotes até _e >= T (iterações completas)
+    print(f"benchmark por tempo (piso {T}s): K iteracoes | Es total | Xms por chamada")
 ```
 
 ```powershell

@@ -102,12 +102,13 @@ variável `BENCH_DURACAO`, e é o ambiente do subprocesso que escolhe o ramo:
   status` → `benchmark_results.csv`.
 
 - **Modo por tempo** (`--duracao T`): o runner **define** `BENCH_DURACAO=T`
-  → o próprio script calibra (`autorange`), roda ~T segundos e imprime
-  `execucoes em Ts: <float> | K chamadas em Es`, parseado por `EXEC_RE`.
-  As execuções são normalizadas pelo script para exatamente T
-  (`execucoes = K * (T / E)` — float; frações para chamadas mais longas que
-  T). CSV: `arquivo, tipo, duracao_s, execucoes, chamadas_medidas,
-  tempo_real_s, status` → `execucoes_por_tempo.csv`.
+  → o próprio script roda um **laço de lotes de iterações completas até a
+  soma dos tempos alcançar >= T** (T é **piso** — a execução nunca para
+  antes; o lote seguinte é estimado pela taxa medida até então, então o
+  excedente após o piso é pequeno). Imprime `benchmark por tempo (piso Ts):
+  K iteracoes | Es total | Xms por chamada`, parseado por `EXEC_RE`.
+  CSV: `arquivo, tipo, piso_s, iteracoes, tempo_total_s,
+  tempo_ms_por_chamada, status` → `execucoes_por_tempo.csv`.
 
 Status possíveis em ambos: `ok`, `sem_timing` (rodou mas não imprimiu
 timing), `erro: <última linha do stderr>`, `timeout (>Ts)`.

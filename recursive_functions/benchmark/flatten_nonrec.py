@@ -48,7 +48,7 @@ qtd_execucoes = 10000
 
 # ===== driver condicional (classico x por tempo) =====
 # Sem BENCH_DURACAO no ambiente: modo CLASSICO (qtd_execucoes iteracoes -> tempo).
-# Com BENCH_DURACAO=<segundos>: modo POR TEMPO (roda ~T s -> execucoes, float).
+# Com BENCH_DURACAO=<segundos>: modo POR TEMPO (T e piso: itera ate somar >= T s).
 # A chamada medida e a MESMA nos dois modos.
 
 if os.environ.get("BENCH_DURACAO") is None:
@@ -57,12 +57,13 @@ if os.environ.get("BENCH_DURACAO") is None:
 else:
     _T = float(os.environ["BENCH_DURACAO"])
     _bench = timeit.Timer(lambda: flatten([[i, [i + 1]] for i in range(0, 20, 2)]))
-    _ncal, _tcal = _bench.autorange()      # calibra: lote com _tcal >= 0.2s
-    if _tcal >= _T:
-        _k, _e = _ncal, _tcal              # a calibracao ja cobriu a duracao
-    else:
-        _alvo = max(1, round(_T / (_tcal / _ncal)))
-        _e = _bench.timeit(number=_alvo)   # roda ~T segundos
-        _k = _alvo
-    _execucoes = _k * (_T / _e)            # normaliza para exatamente T
-    print(f"execucoes em {_T}s: {_execucoes:.6f} | {_k} chamadas em {_e:.4f}s")
+    _k, _e = 0, 0.0                        # iteracoes completas, tempo somado
+    _lote = 1
+    while _e < _T:                         # T e piso: so para ao alcanca-lo
+        _e += _bench.timeit(number=_lote)
+        _k += _lote
+        if _e >= _T:
+            break
+        _est = int((_T - _e) / (_e / _k))  # estimativa do que falta pela taxa
+        _lote = max(1, min(_est, _lote * 10))
+    print(f"benchmark por tempo (piso {_T}s): {_k} iteracoes | {_e:.4f}s total | {_e/_k*1000:.4f}ms por chamada")

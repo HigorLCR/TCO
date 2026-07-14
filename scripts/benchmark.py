@@ -9,9 +9,10 @@ Pipeline completo do benchmark, em um unico script e tres fases:
   FASE 2 - BENCHMARK: roda cada script de verdade, em um de dois modos:
     - CLASSICO (padrao): timeit completo (qtd_execucoes iteracoes -> tempo);
       grava arquivos/csv/benchmark_results.csv.
-    - POR TEMPO (--duracao T): roda cada script com BENCH_DURACAO=T no ambiente
-      (o driver condicional dos proprios scripts mede ~T segundos e imprime as
-      execucoes, float normalizado); grava arquivos/csv/execucoes_por_tempo.csv.
+    - POR TEMPO (--duracao T): roda cada script com BENCH_DURACAO=T no ambiente;
+      T e PISO: o driver condicional do script itera ate a soma dos tempos
+      alcancar >= T s e reporta tempo total, iteracoes exatas e ms por chamada;
+      grava arquivos/csv/execucoes_por_tempo.csv.
 
   FASE 3 - PLANILHA (so no modo classico): gera arquivos/xlsx/tempos_execucao.xlsx
     (aba 'Tempos_Execucao') do zero, com toda a estrutura embutida (cabecalhos,
@@ -61,7 +62,8 @@ TIMING_RE = re.compile(
 )
 # print do ramo por tempo do driver condicional dos scripts
 EXEC_RE = re.compile(
-    r"execucoes em ([\d.]+)s:\s*([\d.]+) \| (\d+) chamadas em ([\d.]+)s"
+    r"benchmark por tempo \(piso ([\d.]+)s\): (\d+) iteracoes \| "
+    r"([\d.]+)s total \| ([\d.]+)ms por chamada"
 )
 
 # ordem de exibicao das versoes de cada funcao
@@ -298,8 +300,8 @@ def _medir(path: Path, timeout: int, duracao: float | None = None) -> dict:
     duracao=None  -> modo classico: sem BENCH_DURACAO no ambiente (ramo do
                      timeit completo) e parse do 'tempo medio de N: ...'.
     duracao=T     -> modo por tempo: BENCH_DURACAO=T no ambiente (o driver
-                     condicional do script mede ~T s) e parse do
-                     'execucoes em Ts: ...'.
+                     condicional do script itera ate somar >= T s) e parse do
+                     'benchmark por tempo (piso Ts): ...'.
     """
     if duracao is None:
         row = {
@@ -309,8 +311,8 @@ def _medir(path: Path, timeout: int, duracao: float | None = None) -> dict:
     else:
         row = {
             "arquivo": path.name, "tipo": classify(path.name),
-            "duracao_s": duracao, "execucoes": "", "chamadas_medidas": "",
-            "tempo_real_s": "", "status": "",
+            "piso_s": duracao, "iteracoes": "", "tempo_total_s": "",
+            "tempo_ms_por_chamada": "", "status": "",
         }
     try:
         # forca o filho a emitir UTF-8 (senao no Windows sai cp1252 e "medio"
@@ -336,9 +338,9 @@ def _medir(path: Path, timeout: int, duracao: float | None = None) -> dict:
             })
         elif m:
             row.update({
-                "execucoes": float(m.group(2)),
-                "chamadas_medidas": int(m.group(3)),
-                "tempo_real_s": float(m.group(4)),
+                "iteracoes": int(m.group(2)),
+                "tempo_total_s": float(m.group(3)),
+                "tempo_ms_por_chamada": float(m.group(4)),
                 "status": "ok",
             })
         elif proc.returncode != 0:
@@ -360,10 +362,10 @@ def fase_benchmark(files: list[Path], timeout: int,
         fieldnames = ["arquivo", "tipo", "qtd_execucoes", "tempo_total_s",
                       "tempo_ms_por_chamada", "status"]
     else:
-        print(f"\n{SEP}\n  FASE 2 - BENCHMARK POR TEMPO ({duracao}s/script)  timeout {timeout}s\n{SEP}\n")
+        print(f"\n{SEP}\n  FASE 2 - BENCHMARK POR TEMPO (piso {duracao}s/script)  timeout {timeout}s\n{SEP}\n")
         csv_out = CSV_TEMPO_OUT
-        fieldnames = ["arquivo", "tipo", "duracao_s", "execucoes",
-                      "chamadas_medidas", "tempo_real_s", "status"]
+        fieldnames = ["arquivo", "tipo", "piso_s", "iteracoes",
+                      "tempo_total_s", "tempo_ms_por_chamada", "status"]
 
     dados = {}
     ok = erros = sem_timing = 0
@@ -376,7 +378,8 @@ def fase_benchmark(files: list[Path], timeout: int,
             ok += 1
         elif row["status"] == "ok":
             print(f"  [{i:>2}/{len(files)}] {f.name:<40} "
-                  f"exec {row['execucoes']:>14,.2f}  ({row['chamadas_medidas']} em {row['tempo_real_s']:.3f}s)")
+                  f"{row['iteracoes']:>10} iteracoes | {row['tempo_total_s']:.4f}s total "
+                  f"| {row['tempo_ms_por_chamada']:.4f} ms/chamada")
             ok += 1
         elif row["status"] == "sem_timing":
             print(f"  [{i:>2}/{len(files)}] {f.name:<40} (sem timing)")
