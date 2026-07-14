@@ -1,18 +1,24 @@
-# `benchmark.py` — pipeline completo por iterações
+# `benchmark.py` — pipeline completo do benchmark
 
 ## Papel
 
-Ponto de entrada único do benchmark clássico ("N iterações → tempo"). Em uma
-execução: **verifica** que as versões de cada função são comparáveis, **mede**
-os tempos com o `timeit` completo e **gera** a planilha final.
+Ponto de entrada único do benchmark. Em uma execução: **verifica** que as
+versões de cada função são comparáveis e **mede** em um de dois modos:
 
-Substituiu três scripts antigos (`verifica_benchmark`, `executa_benchmark`,
-`planilha_benchmark`), que viraram as fases 1, 2 e 3.
+- **clássico** (padrão): "N iterações → tempo" com o `timeit` completo, e ao
+  final **gera** a planilha de tempos;
+- **por tempo** (`--duracao T`): "T segundos → execuções (float)", usando o
+  ramo por tempo do driver condicional dos próprios scripts.
+
+Substituiu os scripts antigos `verifica_benchmark`, `executa_benchmark`,
+`planilha_benchmark` (fases 1, 2 e 3) e `benchmark_por_tempo` (modo
+`--duracao`).
 
 ## Uso
 
 ```
 python scripts/benchmark.py [diretorio] [--timeout segundos]
+python scripts/benchmark.py --duracao 3             # modo por tempo (3 s/script)
 python scripts/benchmark.py --harness <arquivo>     # uso interno (fase 1)
 ```
 
@@ -20,14 +26,16 @@ python scripts/benchmark.py --harness <arquivo>     # uso interno (fase 1)
 |---|---|---|
 | `diretorio` | `recursive_functions/benchmark/` | onde estão os scripts |
 | `--timeout` | 120 s | limite por script (subprocesso) |
+| `--duracao` | — (clássico) | ativa o modo por tempo, com T segundos por script |
 
 ## Entradas e saídas
 
 | | Caminho |
 |---|---|
 | Entrada | `recursive_functions/benchmark/*.py` (82 arquivos, 35 funções) |
-| Saída (fase 2) | `arquivos/csv/benchmark_results.csv` |
-| Saída (fase 3) | `arquivos/xlsx/tempos_execucao.xlsx` (aba `Tempos_Execucao`) |
+| Saída (fase 2, clássico) | `arquivos/csv/benchmark_results.csv` |
+| Saída (fase 2, `--duracao`) | `arquivos/csv/execucoes_por_tempo.csv` |
+| Saída (fase 3, só clássico) | `arquivos/xlsx/tempos_execucao.xlsx` (aba `Tempos_Execucao`) |
 
 ## Etapas
 
@@ -77,22 +85,32 @@ Para cada arquivo, duas coletas independentes:
 
    Divergências não interrompem o pipeline — geram um `[AVISO]` antes da fase 2.
 
-### FASE 2 — Benchmark (timeit completo)
+### FASE 2 — Benchmark (clássico ou por tempo)
 
-Para cada arquivo (`_medir`):
-- roda em **subprocesso real** (`python <arquivo>`), sem patch nenhum — é a
-  medição legítima com `number=qtd_execucoes`;
-- o filho recebe `PYTHONIOENCODING=utf-8`: sem isso, no Windows o `print`
-  sai em cp1252 e o "é" de "tempo médio" quebra o regex no pai;
-- o stdout+stderr é parseado pelo regex `TIMING_RE`
-  (`tempo médio de N: Xs total | Yms por chamada`);
-- status possíveis: `ok`, `sem_timing` (rodou mas não imprimiu timing),
-  `erro: <última linha do stderr>`, `timeout (>Ts)`.
+Para cada arquivo (`_medir`), roda em **subprocesso real** (`python
+<arquivo>`), sem patch nenhum. O filho recebe `PYTHONIOENCODING=utf-8` (sem
+isso, no Windows o `print` sai em cp1252 e o "é" de "tempo médio" quebra o
+regex no pai). Os scripts têm um **driver condicional** controlado pela
+variável `BENCH_DURACAO`, e é o ambiente do subprocesso que escolhe o ramo:
 
-Grava o CSV com: `arquivo, tipo, qtd_execucoes, tempo_total_s,
-tempo_ms_por_chamada, status`.
+- **Modo clássico** (padrão): o runner **remove** `BENCH_DURACAO` do ambiente
+  → o script executa `timeit(number=qtd_execucoes)` e o stdout é parseado por
+  `TIMING_RE` (`tempo médio de N: Xs total | Yms por chamada`).
+  CSV: `arquivo, tipo, qtd_execucoes, tempo_total_s, tempo_ms_por_chamada,
+  status` → `benchmark_results.csv`.
 
-### FASE 3 — Planilha (xlsx do zero)
+- **Modo por tempo** (`--duracao T`): o runner **define** `BENCH_DURACAO=T`
+  → o próprio script calibra (`autorange`), roda ~T segundos e imprime
+  `execucoes em Ts: <float> | K chamadas em Es`, parseado por `EXEC_RE`.
+  As execuções são normalizadas pelo script para exatamente T
+  (`execucoes = K * (T / E)` — float; frações para chamadas mais longas que
+  T). CSV: `arquivo, tipo, duracao_s, execucoes, chamadas_medidas,
+  tempo_real_s, status` → `execucoes_por_tempo.csv`.
+
+Status possíveis em ambos: `ok`, `sem_timing` (rodou mas não imprimiu
+timing), `erro: <última linha do stderr>`, `timeout (>Ts)`.
+
+### FASE 3 — Planilha (xlsx do zero, só no modo clássico)
 
 `fase_planilha` monta `tempos_execucao.xlsx` com `openpyxl.Workbook()` — sem
 template externo. Toda a estrutura vem de constantes editáveis no script:

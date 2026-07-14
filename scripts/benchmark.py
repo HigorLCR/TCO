@@ -6,15 +6,21 @@ Pipeline completo do benchmark, em um unico script e tres fases:
     e obtida executando a funcao 1x (o timeit e neutralizado -> rapido). Assim
     confirmamos que a comparacao de tempos e justa ANTES de medir.
 
-  FASE 2 - BENCHMARK: roda cada script de verdade (timeit completo), coleta os
-    tempos e grava arquivos/csv/benchmark_results.csv.
+  FASE 2 - BENCHMARK: roda cada script de verdade, em um de dois modos:
+    - CLASSICO (padrao): timeit completo (qtd_execucoes iteracoes -> tempo);
+      grava arquivos/csv/benchmark_results.csv.
+    - POR TEMPO (--duracao T): roda cada script com BENCH_DURACAO=T no ambiente
+      (o driver condicional dos proprios scripts mede ~T segundos e imprime as
+      execucoes, float normalizado); grava arquivos/csv/execucoes_por_tempo.csv.
 
-  FASE 3 - PLANILHA: gera arquivos/xlsx/tempos_execucao.xlsx (aba 'Tempos_Execucao')
-    do zero, com toda a estrutura embutida (cabecalhos, complexidade, obs, formulas
-    de sobrecarga por rotulo), preenchida com os tempos medidos na fase 2.
+  FASE 3 - PLANILHA (so no modo classico): gera arquivos/xlsx/tempos_execucao.xlsx
+    (aba 'Tempos_Execucao') do zero, com toda a estrutura embutida (cabecalhos,
+    complexidade, obs, formulas de sobrecarga por rotulo), preenchida com os
+    tempos medidos na fase 2.
 
 Uso:
     python scripts/benchmark.py [diretorio] [--timeout segundos]
+    python scripts/benchmark.py --duracao 3           (modo por tempo, 3 s/script)
     python scripts/benchmark.py --harness <arquivo>   (uso interno da fase 1)
 
 Padrao: recursive_functions/benchmark/
@@ -41,6 +47,7 @@ BASE = Path(__file__).parent.parent
 THIS = Path(__file__).resolve()
 BENCH = BASE / "recursive_functions" / "benchmark"
 CSV_OUT = BASE / "arquivos" / "csv" / "benchmark_results.csv"
+CSV_TEMPO_OUT = BASE / "arquivos" / "csv" / "execucoes_por_tempo.csv"
 XLSX_DIR = BASE / "arquivos" / "xlsx"
 XLSX_OUT = XLSX_DIR / "tempos_execucao.xlsx"
 
@@ -50,6 +57,10 @@ ALTURA = 22.5
 
 TIMING_RE = re.compile(
     r"tempo m[eé]dio de (\d+):\s*([\d.]+)s total \| ([\d.]+)ms por chamada"
+)
+# print do ramo por tempo do driver condicional dos scripts
+EXEC_RE = re.compile(
+    r"execucoes em ([\d.]+)s:\s*([\d.]+) \| (\d+) chamadas em ([\d.]+)s"
 )
 
 # ordem de exibicao das versoes de cada funcao
@@ -205,11 +216,14 @@ def _harness(path_str: str) -> None:
 
 def _saida_de(path: Path, timeout: int) -> tuple[str, str]:
     """Roda o harness num subprocesso e devolve (hash, preview) da saida."""
+    # sem BENCH_DURACAO: o script deve cair no ramo classico (interceptavel),
+    # mesmo que a variavel esteja definida no shell do usuario
+    env = {k: v for k, v in os.environ.items() if k != "BENCH_DURACAO"}
     try:
         proc = subprocess.run(
             [sys.executable, str(THIS), "--harness", str(path)],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
-            timeout=timeout,
+            timeout=timeout, env=env,
         )
     except subprocess.TimeoutExpired:
         return "TIMEOUT", f"(>{timeout}s)"
@@ -275,29 +289,55 @@ def fase_verificacao(files: list[Path], timeout: int) -> int:
     return divergentes
 
 
-# ==================== FASE 2: benchmark (timeit real) ====================
+# ==================== FASE 2: benchmark (classico ou por tempo) ====================
 
-def _medir(path: Path, timeout: int) -> dict:
-    """Roda o script de verdade e extrai a linha de timing."""
-    row = {
-        "arquivo": path.name, "tipo": classify(path.name),
-        "qtd_execucoes": "", "tempo_total_s": "", "tempo_ms_por_chamada": "", "status": "",
-    }
+def _medir(path: Path, timeout: int, duracao: float | None = None) -> dict:
+    """Roda o script de verdade e extrai a linha de timing.
+
+    duracao=None  -> modo classico: sem BENCH_DURACAO no ambiente (ramo do
+                     timeit completo) e parse do 'tempo medio de N: ...'.
+    duracao=T     -> modo por tempo: BENCH_DURACAO=T no ambiente (o driver
+                     condicional do script mede ~T s) e parse do
+                     'execucoes em Ts: ...'.
+    """
+    if duracao is None:
+        row = {
+            "arquivo": path.name, "tipo": classify(path.name),
+            "qtd_execucoes": "", "tempo_total_s": "", "tempo_ms_por_chamada": "", "status": "",
+        }
+    else:
+        row = {
+            "arquivo": path.name, "tipo": classify(path.name),
+            "duracao_s": duracao, "execucoes": "", "chamadas_medidas": "",
+            "tempo_real_s": "", "status": "",
+        }
     try:
         # forca o filho a emitir UTF-8 (senao no Windows sai cp1252 e "medio"
         # quebra o regex do timing quando lido como utf-8)
         env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        if duracao is None:
+            env.pop("BENCH_DURACAO", None)   # garante o ramo classico
+        else:
+            env["BENCH_DURACAO"] = str(duracao)
         proc = subprocess.run(
             [sys.executable, str(path)],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=timeout, env=env,
         )
-        m = TIMING_RE.search(proc.stdout + proc.stderr)
-        if m:
+        saida = proc.stdout + proc.stderr
+        m = (TIMING_RE if duracao is None else EXEC_RE).search(saida)
+        if m and duracao is None:
             row.update({
                 "qtd_execucoes": int(m.group(1)),
                 "tempo_total_s": float(m.group(2)),
                 "tempo_ms_por_chamada": float(m.group(3)),
+                "status": "ok",
+            })
+        elif m:
+            row.update({
+                "execucoes": float(m.group(2)),
+                "chamadas_medidas": int(m.group(3)),
+                "tempo_real_s": float(m.group(4)),
                 "status": "ok",
             })
         elif proc.returncode != 0:
@@ -310,18 +350,32 @@ def _medir(path: Path, timeout: int) -> dict:
     return row
 
 
-def fase_benchmark(files: list[Path], timeout: int) -> dict[str, dict]:
-    """Mede os tempos, grava o CSV e devolve {arquivo: row}."""
-    print(f"\n{SEP}\n  FASE 2 - BENCHMARK (timeit completo)  timeout {timeout}s/script\n{SEP}\n")
+def fase_benchmark(files: list[Path], timeout: int,
+                   duracao: float | None = None) -> dict[str, dict]:
+    """Mede (classico ou por tempo), grava o CSV e devolve {arquivo: row}."""
+    if duracao is None:
+        print(f"\n{SEP}\n  FASE 2 - BENCHMARK (timeit completo)  timeout {timeout}s/script\n{SEP}\n")
+        csv_out = CSV_OUT
+        fieldnames = ["arquivo", "tipo", "qtd_execucoes", "tempo_total_s",
+                      "tempo_ms_por_chamada", "status"]
+    else:
+        print(f"\n{SEP}\n  FASE 2 - BENCHMARK POR TEMPO ({duracao}s/script)  timeout {timeout}s\n{SEP}\n")
+        csv_out = CSV_TEMPO_OUT
+        fieldnames = ["arquivo", "tipo", "duracao_s", "execucoes",
+                      "chamadas_medidas", "tempo_real_s", "status"]
 
     dados = {}
     ok = erros = sem_timing = 0
     for i, f in enumerate(files, 1):
-        row = _medir(f, timeout)
+        row = _medir(f, timeout, duracao)
         dados[f.name] = row
-        if row["status"] == "ok":
+        if row["status"] == "ok" and duracao is None:
             print(f"  [{i:>2}/{len(files)}] {f.name:<40} "
                   f"qtd {row['qtd_execucoes']} | {row['tempo_ms_por_chamada']:.4f} ms/chamada")
+            ok += 1
+        elif row["status"] == "ok":
+            print(f"  [{i:>2}/{len(files)}] {f.name:<40} "
+                  f"exec {row['execucoes']:>14,.2f}  ({row['chamadas_medidas']} em {row['tempo_real_s']:.3f}s)")
             ok += 1
         elif row["status"] == "sem_timing":
             print(f"  [{i:>2}/{len(files)}] {f.name:<40} (sem timing)")
@@ -330,14 +384,13 @@ def fase_benchmark(files: list[Path], timeout: int) -> dict[str, dict]:
             print(f"  [{i:>2}/{len(files)}] {f.name:<40} {row['status']}")
             erros += 1
 
-    fieldnames = ["arquivo", "tipo", "qtd_execucoes", "tempo_total_s", "tempo_ms_por_chamada", "status"]
-    CSV_OUT.parent.mkdir(parents=True, exist_ok=True)
-    with open(CSV_OUT, "w", newline="", encoding="utf-8") as fp:
+    csv_out.parent.mkdir(parents=True, exist_ok=True)
+    with open(csv_out, "w", newline="", encoding="utf-8") as fp:
         w = csv.DictWriter(fp, fieldnames=fieldnames)
         w.writeheader()
         w.writerows(dados.values())
 
-    print(f"\n  {ok} ok | {sem_timing} sem timing | {erros} erros   ->  {CSV_OUT}")
+    print(f"\n  {ok} ok | {sem_timing} sem timing | {erros} erros   ->  {csv_out}")
     return dados
 
 
@@ -499,10 +552,14 @@ def main() -> None:
     args = sys.argv[1:]
     directory = BENCH
     timeout = 120
+    duracao = None
     i = 0
     while i < len(args):
         if args[i] == "--timeout" and i + 1 < len(args):
             timeout = int(args[i + 1])
+            i += 2
+        elif args[i] == "--duracao" and i + 1 < len(args):
+            duracao = float(args[i + 1])
             i += 2
         else:
             directory = Path(args[i])
@@ -519,17 +576,21 @@ def main() -> None:
         print(f"Nenhum .py em: {directory}")
         sys.exit(1)
 
-    print(f"\n{SEP}\n  BENCHMARK - {len(files)} arquivos em {directory}\n{SEP}")
+    modo = "classico" if duracao is None else f"por tempo ({duracao}s/script)"
+    print(f"\n{SEP}\n  BENCHMARK - {len(files)} arquivos em {directory} | modo {modo}\n{SEP}")
 
     divergentes = fase_verificacao(files, timeout)
     if divergentes:
         print(f"\n  [AVISO] {divergentes} funcao(oes) com entrada/saida divergente entre "
               f"versoes: a comparacao de tempos delas pode nao ser justa.\n")
 
-    dados = fase_benchmark(files, timeout)
-    fase_planilha(dados)
-
-    print(f"\n{SEP}\n  Concluido: verificacao + benchmark + planilha\n{SEP}")
+    dados = fase_benchmark(files, timeout, duracao)
+    if duracao is None:
+        fase_planilha(dados)
+        print(f"\n{SEP}\n  Concluido: verificacao + benchmark + planilha\n{SEP}")
+    else:
+        print(f"\n{SEP}\n  Concluido: verificacao + benchmark por tempo "
+              f"(planilha so no modo classico)\n{SEP}")
 
 
 if __name__ == "__main__":

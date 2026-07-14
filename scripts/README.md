@@ -7,8 +7,7 @@ script (papel, uso, etapas, funcionamento interno) está em [`docs/`](docs/).
 
 | Script | Papel | Doc |
 |---|---|---|
-| `benchmark.py` | Pipeline completo por iterações: verifica versões, mede tempos (timeit) e gera o xlsx | [docs/benchmark.md](docs/benchmark.md) |
-| `benchmark_por_tempo.py` | Pipeline por tempo: verifica versões e mede execuções (float) numa duração fixa | [docs/benchmark_por_tempo.md](docs/benchmark_por_tempo.md) |
+| `benchmark.py` | Pipeline completo do benchmark: verifica versões e mede no modo clássico (iterações → tempo → xlsx) ou por tempo (`--duracao T` → execuções → CSV) | [docs/benchmark.md](docs/benchmark.md) |
 | `planilha_benchmark.py` | **Legado** — regera só o xlsx de tempos a partir do CSV existente | [docs/planilha_benchmark.md](docs/planilha_benchmark.md) |
 | `printa_cobertura.py` | Relatório de cobertura de nós AST no terminal | [docs/printa_cobertura.md](docs/printa_cobertura.md) |
 | `gera_matriz_cobertura.py` | Gera a matriz nós × arquivos (`node_matrix.txt`) | [docs/gera_matriz_cobertura.md](docs/gera_matriz_cobertura.md) |
@@ -43,10 +42,10 @@ python recursive_functions/benchmark/sum.py                          # clássico
 $env:BENCH_DURACAO='3'; python recursive_functions/benchmark/sum.py  # por tempo
 ```
 
-O ramo clássico é a "API" que os runners exploram — tanto o `print` (parseado
-por regex) quanto o próprio `timeit.timeit(lambda: ...)` (interceptado em
-runtime para verificação e medição por tempo). Os runners executam os scripts
-**sem** `BENCH_DURACAO`, então sempre caem no ramo clássico.
+Os dois ramos são a "API" que o `benchmark.py` explora: a verificação e o modo
+clássico rodam os scripts **sem** `BENCH_DURACAO` (interceptam/parseiam o ramo
+clássico); o modo `--duracao T` roda cada script **com** `BENCH_DURACAO=T` e
+parseia o `print` de execuções do ramo por tempo.
 
 ## Fluxo de dados
 
@@ -54,11 +53,12 @@ runtime para verificação e medição por tempo). Os runners executam os script
                         DOMÍNIO BENCHMARK
 recursive_functions/benchmark/*.py
     │
-    ├── benchmark.py ──────────────┬─→ arquivos/csv/benchmark_results.csv
-    │   (verifica + mede + gera)   └─→ arquivos/xlsx/tempos_execucao.xlsx
-    │
-    └── benchmark_por_tempo.py ──────→ arquivos/csv/execucoes_por_tempo.csv
-        (verifica + execuções em T segundos)
+    └── benchmark.py
+        ├── (clássico) ────────────┬─→ arquivos/csv/benchmark_results.csv
+        │   verifica + timeit      └─→ arquivos/xlsx/tempos_execucao.xlsx
+        │
+        └── (--duracao T) ───────────→ arquivos/csv/execucoes_por_tempo.csv
+            verifica + execuções em T segundos
 
                         DOMÍNIO COBERTURA
 recursive_functions/benchmark/*.py   (sem _nonrec / output_)
