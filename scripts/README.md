@@ -9,7 +9,6 @@ script (papel, uso, etapas, funcionamento interno) está em [`docs/`](docs/).
 |---|---|---|
 | `benchmark.py` | Pipeline completo por iterações: verifica versões, mede tempos (timeit) e gera o xlsx | [docs/benchmark.md](docs/benchmark.md) |
 | `benchmark_por_tempo.py` | Pipeline por tempo: verifica versões e mede execuções (float) numa duração fixa | [docs/benchmark_por_tempo.md](docs/benchmark_por_tempo.md) |
-| `gerar_benchmark_tempo.py` | Gera `recursive_functions/benchmark_tempo/` (scripts autônomos por tempo) | [docs/gerar_benchmark_tempo.md](docs/gerar_benchmark_tempo.md) |
 | `planilha_benchmark.py` | **Legado** — regera só o xlsx de tempos a partir do CSV existente | [docs/planilha_benchmark.md](docs/planilha_benchmark.md) |
 | `printa_cobertura.py` | Relatório de cobertura de nós AST no terminal | [docs/printa_cobertura.md](docs/printa_cobertura.md) |
 | `gera_matriz_cobertura.py` | Gera a matriz nós × arquivos (`node_matrix.txt`) | [docs/gera_matriz_cobertura.md](docs/gera_matriz_cobertura.md) |
@@ -24,17 +23,30 @@ função existe em até 3 versões:
 - `<nome>_nonrec.py` — versão **iterativa** gerada pelo `recpython3`;
 - `output_<nome>.py` — versão **tail-recursion → iteração** (só quem já foi convertida).
 
-Cada script de benchmark termina com o driver padrão:
+Cada script de benchmark termina com um **driver condicional**, controlado
+pela variável de ambiente `BENCH_DURACAO`:
 
 ```python
-qtd_execucoes = N
-tempo = timeit.timeit(lambda: f(args), number=qtd_execucoes)
-print(f"tempo médio de {qtd_execucoes}: {tempo:.4f}s total | {tempo/qtd_execucoes*1000:.4f}ms por chamada")
+if _os.environ.get("BENCH_DURACAO") is None:
+    # modo CLÁSSICO: qtd_execucoes iterações -> tempo
+    tempo = timeit.timeit(lambda: f(args), number=qtd_execucoes)
+    print(f"tempo médio de {qtd_execucoes}: ...s total | ...ms por chamada")
+else:
+    # modo POR TEMPO: roda ~T segundos -> execuções (float, normalizado)
+    _bench = _timeit.Timer(lambda: f(args))   # a MESMA chamada
+    ...  # autorange + lote de ~T s + normalização K*(T/E)
+    print(f"execucoes em {T}s: ... | K chamadas em Es")
 ```
 
-Esse padrão é a "API" que os runners exploram — tanto o `print` (parseado por
-regex) quanto o próprio `timeit.timeit(lambda: ...)` (interceptado em runtime
-para verificação e medição por tempo).
+```powershell
+python recursive_functions/benchmark/sum.py                          # clássico
+$env:BENCH_DURACAO='3'; python recursive_functions/benchmark/sum.py  # por tempo
+```
+
+O ramo clássico é a "API" que os runners exploram — tanto o `print` (parseado
+por regex) quanto o próprio `timeit.timeit(lambda: ...)` (interceptado em
+runtime para verificação e medição por tempo). Os runners executam os scripts
+**sem** `BENCH_DURACAO`, então sempre caem no ramo clássico.
 
 ## Fluxo de dados
 
@@ -45,11 +57,8 @@ recursive_functions/benchmark/*.py
     ├── benchmark.py ──────────────┬─→ arquivos/csv/benchmark_results.csv
     │   (verifica + mede + gera)   └─→ arquivos/xlsx/tempos_execucao.xlsx
     │
-    ├── benchmark_por_tempo.py ──────→ arquivos/csv/execucoes_por_tempo.csv
-    │   (verifica + execuções em T segundos)
-    │
-    └── gerar_benchmark_tempo.py ────→ recursive_functions/benchmark_tempo/*.py
-        (scripts autônomos por tempo)
+    └── benchmark_por_tempo.py ──────→ arquivos/csv/execucoes_por_tempo.csv
+        (verifica + execuções em T segundos)
 
                         DOMÍNIO COBERTURA
 recursive_functions/benchmark/*.py   (sem _nonrec / output_)

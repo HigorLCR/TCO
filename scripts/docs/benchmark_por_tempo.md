@@ -83,13 +83,19 @@ factorial:      K=237       em E=3.180s  →  exec = 237 × (3/3.180)       ≈ 
 Por isso `execucoes` é um **float** — e funções com chamada mais longa que a
 duração produzem frações (ex.: ~0.2 execuções em 3 s).
 
-## Aviso importante
+## Relação com o driver condicional dos scripts
 
-Este runner funciona por **interceptação do `timeit.timeit`** e portanto é
-para o diretório **`/benchmark`** (padrão clássico). **Não** o aponte para
-`recursive_functions/benchmark_tempo/` — lá os scripts foram convertidos para
-usar `timeit.Timer(...)` diretamente e são autônomos; a interceptação não os
-captura (dariam `sem_timing`).
+Os scripts de `/benchmark` têm um **driver condicional** (`BENCH_DURACAO`):
+sem a variável rodam no modo clássico, com ela rodam por tempo de forma
+autônoma. Este runner os executa **sem** `BENCH_DURACAO`, então eles caem no
+ramo clássico — cujo `timeit.timeit(lambda: ...)` é interceptado para a
+medição por tempo daqui.
+
+Ou seja, há duas maneiras equivalentes de medir por tempo:
+
+- **este runner** — para a suíte completa: verificação + CSV consolidado;
+- **`BENCH_DURACAO=3 python <script>`** — para rodar um script individual
+  avulso, sem runner.
 
 ## Status possíveis
 
