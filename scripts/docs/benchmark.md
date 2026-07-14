@@ -10,15 +10,16 @@ versões de cada função são comparáveis e **mede** em um de dois modos:
 - **por tempo** (`--duracao T`): "T segundos → execuções (float)", usando o
   ramo por tempo do driver condicional dos próprios scripts.
 
-Substituiu os scripts antigos `verifica_benchmark`, `executa_benchmark`,
-`planilha_benchmark` (fases 1, 2 e 3) e `benchmark_por_tempo` (modo
-`--duracao`).
+Substituiu os scripts antigos `verifica_benchmark`, `executa_benchmark` e
+`planilha_benchmark` (fases 1, 2 e 3 / `--so-planilha`) e `benchmark_por_tempo`
+(modo `--duracao`).
 
 ## Uso
 
 ```
 python scripts/benchmark.py [diretorio] [--timeout segundos]
 python scripts/benchmark.py --duracao 3             # modo por tempo (3 s/script)
+python scripts/benchmark.py --so-planilha           # só a fase 3, a partir do CSV
 python scripts/benchmark.py --harness <arquivo>     # uso interno (fase 1)
 ```
 
@@ -27,6 +28,7 @@ python scripts/benchmark.py --harness <arquivo>     # uso interno (fase 1)
 | `diretorio` | `recursive_functions/benchmark/` | onde estão os scripts |
 | `--timeout` | 120 s | limite por script (subprocesso) |
 | `--duracao` | — (clássico) | ativa o modo por tempo, com T segundos por script |
+| `--so-planilha` | — | pula as fases 1–2 e regenera o xlsx a partir do `benchmark_results.csv` existente (sem remedir) |
 
 ## Entradas e saídas
 

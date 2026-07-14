@@ -7,8 +7,7 @@ script (papel, uso, etapas, funcionamento interno) está em [`docs/`](docs/).
 
 | Script | Papel | Doc |
 |---|---|---|
-| `benchmark.py` | Pipeline completo do benchmark: verifica versões e mede no modo clássico (iterações → tempo → xlsx) ou por tempo (`--duracao T` → execuções → CSV) | [docs/benchmark.md](docs/benchmark.md) |
-| `planilha_benchmark.py` | **Legado** — regera só o xlsx de tempos a partir do CSV existente | [docs/planilha_benchmark.md](docs/planilha_benchmark.md) |
+| `benchmark.py` | Pipeline completo do benchmark: verifica versões e mede no modo clássico (iterações → tempo → xlsx) ou por tempo (`--duracao T` → execuções → CSV); `--so-planilha` regera só o xlsx do CSV | [docs/benchmark.md](docs/benchmark.md) |
 | `printa_cobertura.py` | Relatório de cobertura de nós AST no terminal | [docs/printa_cobertura.md](docs/printa_cobertura.md) |
 | `gera_matriz_cobertura.py` | Gera a matriz nós × arquivos (`node_matrix.txt`) | [docs/gera_matriz_cobertura.md](docs/gera_matriz_cobertura.md) |
 | `planilha_cobertura.py` | Gera o xlsx colorido de nós cobertos a partir da matriz | [docs/planilha_cobertura.md](docs/planilha_cobertura.md) |

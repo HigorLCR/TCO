@@ -21,6 +21,7 @@ Pipeline completo do benchmark, em um unico script e tres fases:
 Uso:
     python scripts/benchmark.py [diretorio] [--timeout segundos]
     python scripts/benchmark.py --duracao 3           (modo por tempo, 3 s/script)
+    python scripts/benchmark.py --so-planilha         (so a fase 3, a partir do CSV)
     python scripts/benchmark.py --harness <arquivo>   (uso interno da fase 1)
 
 Padrao: recursive_functions/benchmark/
@@ -553,6 +554,7 @@ def main() -> None:
     directory = BENCH
     timeout = 120
     duracao = None
+    so_planilha = False
     i = 0
     while i < len(args):
         if args[i] == "--timeout" and i + 1 < len(args):
@@ -561,11 +563,24 @@ def main() -> None:
         elif args[i] == "--duracao" and i + 1 < len(args):
             duracao = float(args[i + 1])
             i += 2
+        elif args[i] == "--so-planilha":
+            so_planilha = True
+            i += 1
         else:
             directory = Path(args[i])
             if not directory.is_absolute():
                 directory = BASE / directory
             i += 1
+
+    # so a fase 3: regenera o xlsx a partir do CSV ja coletado, sem remedir
+    if so_planilha:
+        if not CSV_OUT.exists():
+            print(f"CSV nao encontrado: {CSV_OUT} (rode o benchmark antes)")
+            sys.exit(1)
+        with open(CSV_OUT, newline="", encoding="utf-8") as fp:
+            dados = {row["arquivo"]: row for row in csv.DictReader(fp)}
+        fase_planilha(dados)
+        return
 
     if not directory.is_dir():
         print(f"Diretorio nao encontrado: {directory}")
