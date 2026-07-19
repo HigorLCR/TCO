@@ -1,5 +1,5 @@
 """
-Pipeline completo do benchmark, em um unico script e tres fases:
+Pipeline do benchmark, em um unico script e duas fases:
 
   FASE 1 - VERIFICACAO: para cada funcao, agrupa suas versoes (normal | output_ |
     _nonrec) e confere que usam a MESMA entrada e produzem a MESMA saida. A saida
@@ -14,15 +14,12 @@ Pipeline completo do benchmark, em um unico script e tres fases:
       alcancar >= T s e reporta tempo total, iteracoes exatas e ms por chamada;
       grava arquivos/csv/execucoes_por_tempo.csv.
 
-  FASE 3 - PLANILHA (so no modo classico): gera arquivos/xlsx/tempos_execucao.xlsx
-    (aba 'Tempos_Execucao') do zero, com toda a estrutura embutida (cabecalhos,
-    complexidade, obs, formulas de sobrecarga por rotulo), preenchida com os
-    tempos medidos na fase 2.
+A planilha (arquivos/xlsx/tempos_execucao.xlsx) e gerada a parte por
+scripts/planilha_tempos.py, a partir do CSV do modo classico.
 
 Uso:
     python scripts/benchmark.py [diretorio] [--timeout segundos]
     python scripts/benchmark.py --duracao 3           (modo por tempo, 3 s/script)
-    python scripts/benchmark.py --so-planilha         (so a fase 3, a partir do CSV)
     python scripts/benchmark.py --harness <arquivo>   (uso interno da fase 1)
 
 Padrao: recursive_functions/benchmark/
@@ -42,20 +39,13 @@ import timeit
 from collections import defaultdict
 from pathlib import Path
 
-import openpyxl
-from openpyxl.styles import Alignment, Font, PatternFill
-
 BASE = Path(__file__).parent.parent
 THIS = Path(__file__).resolve()
 BENCH = BASE / "recursive_functions" / "benchmark"
 CSV_OUT = BASE / "arquivos" / "csv" / "benchmark_results.csv"
 CSV_TEMPO_OUT = BASE / "arquivos" / "csv" / "execucoes_por_tempo.csv"
-XLSX_DIR = BASE / "arquivos" / "xlsx"
-XLSX_OUT = XLSX_DIR / "tempos_execucao.xlsx"
 
 SEP = "=" * 70
-ABA = "Tempos_Execucao"
-ALTURA = 22.5
 
 TIMING_RE = re.compile(
     r"tempo m[eé]dio de (\d+):\s*([\d.]+)s total \| ([\d.]+)ms por chamada"
@@ -410,158 +400,6 @@ def fase_benchmark(
     return dados
 
 
-# ==================== FASE 3: planilha (xlsx) ====================
-
-COLUNA_PARA_BASE = {
-    "B": "fibonacci", "C": "factorial", "D": "sum", "E": "mdc",
-    "F": "woodcutter", "G": "binary_search", "H": "quickselect",
-    "I": "identical_strings", "J": "linear_search",
-    "K": "non_negative_int_contain_digit", "L": "Hannoi", "M": "MergeSort",
-    "N": "NumSearchTree", "O": "fast_pow", "P": "count_bits", "Q": "flatten",
-    "R": "first_missing", "S": "valid_bst", "T": "fib_memo", "U": "countdown",
-    "V": "safe_parse", "W": "sum_nested", "X": "remove_keys", "Y": "find_first",
-    "Z": "count_matches",
-}
-
-# Cabecalho por funcao (linha 1): apenas o NOME, sem parametros -- os
-# parametros exatos ficam na linha 'Parametros'.
-HEADERS = {
-    "B": "Fibonacci", "C": "Factorial", "D": "Sum", "E": "mdc",
-    "F": "woodcutter", "G": "Binary_Search_Tree", "H": "quick_select",
-    "I": "identical_strings", "J": "linear_search",
-    "K": "non_negative_int_contain_digit", "L": "Hannoi", "M": "MergeSort",
-    "N": "NumSearchTree", "O": "fast_pow", "P": "count_bits", "Q": "flatten",
-    "R": "first_missing", "S": "is_valid_bst", "T": "fib_memo", "U": "countdown",
-    "V": "safe_parse", "W": "sum_nested", "X": "remove_keys", "Y": "find_first",
-    "Z": "count_matches",
-}
-
-COMPLEXIDADE = {
-    "B": "O(n)", "C": "O(n)", "D": "O(n)", "E": "O(log min(a,b))",
-    "F": "O(n log m)", "G": "O(log n)", "H": "O(n) médio / O(n²) pior caso",
-    "I": "O(n)", "J": "O(n)", "K": "O(log n)", "L": "O(2ⁿ)", "M": "O(n log n)",
-    "N": "O(4ⁿ / n^1.5)", "O": "O(log exp)", "P": "O(log n)", "Q": "O(n²)",
-    "R": "O(n²)", "S": "O(n)", "T": "O(n)", "U": "O(n)", "V": "O(n²)",
-    "W": "O(n)", "X": "O(k²)", "Y": "O(n)", "Z": "O(n²)",
-}
-
-OBS = {
-    "F": "n = nº de árvores, m = intervalo de altura",
-    "H": "Depende da escolha do pivô",
-    "I": "n = tamanho da string",
-    "L": "Gera 2ⁿ − 1 movimentos obrigatoriamente",
-    "O": "exp reduz pela metade a cada dois passos",
-}
-
-LINHA_REC, LINHA_TAIL, LINHA_NONREC = 2, 3, 4
-LINHA_SOB_TAIL, LINHA_SOB = 5, 6
-LINHA_ITER, LINHA_PARAMS, LINHA_CPX, LINHA_OBS = 7, 8, 9, 10
-ULTIMA_LINHA = LINHA_OBS
-
-ROTULO_REC = "Tempo_Recursao_Media"
-ROTULO_TAIL = "Tempo_Iteracao_Tail_Media"
-ROTULO_NONREC = "Tempo_Iteracao_Media"
-
-ROTULOS = {
-    LINHA_REC: ROTULO_REC, LINHA_TAIL: ROTULO_TAIL, LINHA_NONREC: ROTULO_NONREC,
-    LINHA_SOB_TAIL: "Sobrecarga_Tail (rec/it_tail)",
-    LINHA_SOB: "Sobrecarga (rec/it_normal)",
-    LINHA_ITER: "Numero_Iteracoes", LINHA_PARAMS: "Parametros",
-    LINHA_CPX: "Complexidade de resolução", LINHA_OBS: "Obs",
-}
-
-HDR_FILL = PatternFill(start_color="FF217346", end_color="FF217346", fill_type="solid")
-HDR_FONT = Font(bold=True, color="FFFFFFFF")
-HDR_ALIGN = Alignment(horizontal="center", vertical="center", wrap_text=True)
-BAND_FILL = PatternFill(start_color="FFF2F2F2", end_color="FFF2F2F2", fill_type="solid")
-ROT_FONT = Font(bold=True)
-CENTER = Alignment(horizontal="center", vertical="center")
-LEFT = Alignment(horizontal="left", vertical="center")
-ALINHA_LINHA = {LINHA_PARAMS: LEFT, LINHA_OBS: LEFT}
-
-
-def _formula_sobrecarga(rotulo_denominador: str) -> str:
-    num = f'INDEX($A:$AA,MATCH("{ROTULO_REC}",$A:$A,0),COLUMN())'
-    den = f'INDEX($A:$AA,MATCH("{rotulo_denominador}",$A:$A,0),COLUMN())'
-    return f'=IFERROR(ROUND({num}/{den},3),"-")'
-
-
-FORMULA_SOB_TAIL = _formula_sobrecarga(ROTULO_TAIL)
-FORMULA_SOB = _formula_sobrecarga(ROTULO_NONREC)
-
-
-def _tempo(dados: dict, arquivo: str):
-    """tempo_ms_por_chamada (float) ou None se ausente/sem timing."""
-    row = dados.get(arquivo)
-    if row is None or row["status"] != "ok" or not row["tempo_ms_por_chamada"]:
-        return None
-    return float(row["tempo_ms_por_chamada"])
-
-
-def _qtd_iter(dados: dict, base: str):
-    for arq in (f"{base}.py", f"output_{base}.py", f"{base}_nonrec.py"):
-        row = dados.get(arq)
-        if row and row["status"] == "ok" and row["qtd_execucoes"]:
-            return int(row["qtd_execucoes"])
-    return None
-
-
-def fase_planilha(dados: dict[str, dict]) -> None:
-    """Gera o xlsx do zero a partir dos tempos medidos (dict {arquivo: row})."""
-    print(f"\n{SEP}\n  FASE 3 - PLANILHA (tempos_execucao.xlsx)\n{SEP}\n")
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = ABA
-
-    ws.cell(1, 1, "Função")
-    for linha, rotulo in ROTULOS.items():
-        c = ws.cell(linha, 1, rotulo)
-        c.font = ROT_FONT
-        c.alignment = LEFT
-
-    for col, base in COLUNA_PARA_BASE.items():
-        rec = _tempo(dados, f"{base}.py")
-        nonrec = _tempo(dados, f"{base}_nonrec.py")
-        tail = _tempo(dados, f"output_{base}.py")
-        iteracoes = _qtd_iter(dados, base)
-        params = entrada_de(BENCH / f"{base}.py")
-
-        ws[f"{col}1"] = HEADERS.get(col, base)
-        ws[f"{col}{LINHA_REC}"] = rec if rec is not None else "-"
-        ws[f"{col}{LINHA_NONREC}"] = nonrec if nonrec is not None else "-"
-        ws[f"{col}{LINHA_TAIL}"] = tail if tail is not None else "-"
-        ws[f"{col}{LINHA_SOB_TAIL}"] = FORMULA_SOB_TAIL
-        ws[f"{col}{LINHA_SOB}"] = FORMULA_SOB
-        ws[f"{col}{LINHA_ITER}"] = iteracoes if iteracoes is not None else "-"
-        ws[f"{col}{LINHA_PARAMS}"] = params
-        ws[f"{col}{LINHA_CPX}"] = COMPLEXIDADE.get(col, "-")
-        ws[f"{col}{LINHA_OBS}"] = OBS.get(col, "")
-        for linha in range(LINHA_REC, ULTIMA_LINHA + 1):
-            ws[f"{col}{linha}"].alignment = ALINHA_LINHA.get(linha, CENTER)
-
-    ncols = 1 + len(COLUNA_PARA_BASE)
-    for c in range(1, ncols + 1):
-        cell = ws.cell(1, c)
-        cell.fill = HDR_FILL
-        cell.font = HDR_FONT
-        cell.alignment = HDR_ALIGN
-    for r in range(LINHA_REC, ULTIMA_LINHA + 1):
-        if r % 2 == 0:
-            for c in range(1, ncols + 1):
-                ws.cell(r, c).fill = BAND_FILL
-    for r in range(1, ULTIMA_LINHA + 1):
-        ws.row_dimensions[r].height = ALTURA
-    ws.column_dimensions["A"].width = 30
-    for col in COLUNA_PARA_BASE:
-        ws.column_dimensions[col].width = 16
-    ws.freeze_panes = "B2"
-
-    XLSX_DIR.mkdir(parents=True, exist_ok=True)
-    wb.save(XLSX_OUT)
-    print(f"  Aba '{ABA}' com {len(COLUNA_PARA_BASE)} funcoes  ->  {XLSX_OUT}")
-
-
 # ==================== orquestracao ====================
 
 def main() -> None:
@@ -569,7 +407,6 @@ def main() -> None:
     directory = BENCH
     timeout = 120
     duracao = None
-    so_planilha = False
     i = 0
     #coleta de argumentos opcionais
     while i < len(args):
@@ -579,24 +416,11 @@ def main() -> None:
         elif args[i] == "--duracao" and i + 1 < len(args):
             duracao = float(args[i + 1])
             i += 2
-        elif args[i] == "--so-planilha":
-            so_planilha = True
-            i += 1
         else:
             directory = Path(args[i])
             if not directory.is_absolute():
                 directory = BASE / directory
             i += 1
-
-    # so a fase 3: regenera o xlsx a partir do CSV ja coletado, sem remedir
-    if so_planilha:
-        if not CSV_OUT.exists():
-            print(f"CSV nao encontrado: {CSV_OUT} (rode o benchmark antes)")
-            sys.exit(1)
-        with open(CSV_OUT, newline="", encoding="utf-8") as fp:
-            dados = {row["arquivo"]: row for row in csv.DictReader(fp)}
-        fase_planilha(dados)
-        return
 
     if not directory.is_dir():
         print(f"Diretorio nao encontrado: {directory}")
@@ -615,13 +439,12 @@ def main() -> None:
         print(f"\n  [AVISO] {divergentes} funcao(oes) com entrada/saida divergente entre "
               f"versoes: a comparacao de tempos delas pode nao ser justa.\n")
 
-    dados = fase_benchmark(files, timeout, duracao)
+    fase_benchmark(files, timeout, duracao)
     if duracao is None:
-        fase_planilha(dados)
-        print(f"\n{SEP}\n  Concluido: verificacao + benchmark + planilha\n{SEP}")
+        print(f"\n{SEP}\n  Concluido: verificacao + benchmark classico "
+              f"(planilha: python scripts/planilha_tempos.py)\n{SEP}")
     else:
-        print(f"\n{SEP}\n  Concluido: verificacao + benchmark por tempo "
-              f"(planilha so no modo classico)\n{SEP}")
+        print(f"\n{SEP}\n  Concluido: verificacao + benchmark por tempo\n{SEP}")
 
 
 if __name__ == "__main__":

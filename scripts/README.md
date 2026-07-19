@@ -7,7 +7,8 @@ script (papel, uso, etapas, funcionamento interno) está em [`docs/`](docs/).
 
 | Script | Papel | Doc |
 |---|---|---|
-| `benchmark.py` | Pipeline completo do benchmark: verifica versões e mede no modo clássico (iterações → tempo → xlsx) ou por tempo (`--duracao T` → execuções → CSV); `--so-planilha` regera só o xlsx do CSV | [docs/benchmark.md](docs/benchmark.md) |
+| `benchmark.py` | Verifica versões e mede no modo clássico (iterações → tempo) ou por tempo (`--duracao T` → execuções); grava o CSV do modo | [docs/benchmark.md](docs/benchmark.md) |
+| `planilha_tempos.py` | Gera o xlsx de tempos a partir do `benchmark_results.csv` | [docs/planilha_tempos.md](docs/planilha_tempos.md) |
 | `printa_cobertura.py` | Relatório de cobertura de nós AST no terminal | [docs/printa_cobertura.md](docs/printa_cobertura.md) |
 | `gera_matriz_cobertura.py` | Gera a matriz nós × arquivos (`node_matrix.txt`) | [docs/gera_matriz_cobertura.md](docs/gera_matriz_cobertura.md) |
 | `planilha_cobertura.py` | Gera o xlsx colorido de nós cobertos a partir da matriz | [docs/planilha_cobertura.md](docs/planilha_cobertura.md) |
@@ -53,8 +54,11 @@ parseia o `print` de execuções do ramo por tempo.
 recursive_functions/benchmark/*.py
     │
     └── benchmark.py
-        ├── (clássico) ────────────┬─→ arquivos/csv/benchmark_results.csv
-        │   verifica + timeit      └─→ arquivos/xlsx/tempos_execucao.xlsx
+        ├── (clássico) ──────────────→ arquivos/csv/benchmark_results.csv
+        │   verifica + timeit               │
+        │                        planilha_tempos.py
+        │                                   │
+        │                                   └─→ arquivos/xlsx/tempos_execucao.xlsx
         │
         └── (--duracao T) ───────────→ arquivos/csv/execucoes_por_tempo.csv
             verifica + execuções em T segundos
