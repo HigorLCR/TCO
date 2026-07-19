@@ -8,7 +8,7 @@ célula conforme a regra de "quem identificou cada nó primeiro".
 
 Fica no **fim da cadeia** de cobertura: não parseia nenhum arquivo Python —
 toda a informação vem da matriz. Se o benchmark mudou, rode
-`gera_matriz_cobertura.py` antes.
+`cobertura.py --matriz` antes.
 
 ## Uso
 

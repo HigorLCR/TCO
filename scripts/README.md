@@ -9,8 +9,7 @@ script (papel, uso, etapas, funcionamento interno) está em [`docs/`](docs/).
 |---|---|---|
 | `benchmark.py` | Verifica versões e mede no modo clássico (iterações → tempo) ou por tempo (`--duracao T` → execuções); grava o CSV do modo | [docs/benchmark.md](docs/benchmark.md) |
 | `planilha_tempos.py` | Gera o xlsx de tempos a partir do `benchmark_results.csv` | [docs/planilha_tempos.md](docs/planilha_tempos.md) |
-| `printa_cobertura.py` | Relatório de cobertura de nós AST no terminal | [docs/printa_cobertura.md](docs/printa_cobertura.md) |
-| `gera_matriz_cobertura.py` | Gera a matriz nós × arquivos (`node_matrix.txt`) | [docs/gera_matriz_cobertura.md](docs/gera_matriz_cobertura.md) |
+| `cobertura.py` | Relatório de cobertura de nós AST no terminal; `--matriz` grava a matriz nós × arquivos (`node_matrix.txt`) | [docs/cobertura.md](docs/cobertura.md) |
 | `planilha_cobertura.py` | Gera o xlsx colorido de nós cobertos a partir da matriz | [docs/planilha_cobertura.md](docs/planilha_cobertura.md) |
 
 ## Convenções do diretório de benchmark
@@ -66,9 +65,9 @@ recursive_functions/benchmark/*.py
                         DOMÍNIO COBERTURA
 recursive_functions/benchmark/*.py   (sem _nonrec / output_)
     │
-    ├── printa_cobertura.py ─────────→ (relatório no terminal)
-    │
-    └── gera_matriz_cobertura.py ────→ arquivos/txt/node_matrix.txt
+    └── cobertura.py ──┬─────────────→ (relatório no terminal)
+                       │
+                       └─ (--matriz) → arquivos/txt/node_matrix.txt
                                             │
                           planilha_cobertura.py
                                             │
