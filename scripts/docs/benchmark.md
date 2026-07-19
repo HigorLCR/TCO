@@ -149,6 +149,90 @@ Detalhes:
 - **sem Tabela/ListObject**: o banding de tabela mascara preenchimentos
   manuais e o Google Sheets o reaplica na importação.
 
+## Referência: função a função
+
+Mapa do fluxo (do ponto de entrada às folhas):
+
+```
+python benchmark.py
+        │
+   bloco __main__ ─── se "--harness <arq>": este processo vira o FILHO da
+        │             fase 1 (_harness) e termina
+        │
+      main() ── parseia flags ── se --so-planilha: lê o CSV → fase_planilha()
+        │
+        ├─ 1) fase_verificacao(files)          "a comparação é justa?"
+        │       └─ por arquivo: entrada_de() [AST] + _saida_de() [subproc --harness]
+        │
+        ├─ 2) fase_benchmark(files, duracao)   "mede de verdade"
+        │       └─ por arquivo: _medir() [subprocesso real] → CSV
+        │
+        └─ 3) fase_planilha(dados)             "gera o xlsx" (só modo clássico)
+```
+
+### Nomenclatura
+
+| Função | O que faz |
+|---|---|
+| `classify(name)` | Tipo do arquivo pela convenção de nomes: `output_*` → `output`, `*_nonrec.py` → `nonrec`, senão `recursivo`. |
+| `base_de(name)` | Reduz qualquer versão à função-base (tira `.py`, `output_`, `_nonrec`); é o que permite agrupar as versões na fase 1. |
+
+### Extração da ENTRADA (estática, via AST — nada é executado)
+
+Cadeia usada por `entrada_de()` para descobrir os argumentos reais da chamada:
+
+| Função | O que faz |
+|---|---|
+| `_assignments(tree)` | Dicionário `{variável: nó AST do valor}` das atribuições de nível de módulo — a "tabela de símbolos". |
+| `_substitute(node, amap, depth)` | `NodeTransformer` que troca cada `Name` dos argumentos pelo seu valor, recursivamente (profundidade ≤ 4): `f(N, 10000)` → `f([1 for i in range(10000)], 10000)`. |
+| `_achar_timeit_lambda(tree)` | Localiza a chamada `timeit.timeit(lambda: f(args))` na AST e devolve o `Call` de dentro do lambda. |
+| `_abreviar_numeros(texto)` | Inteiros com 16+ dígitos viram `353410...177320(207dig)`. |
+| `entrada_de(path)` | Orquestra os quatro acima e devolve `"p1, p2, ..."`; `"-"` se o arquivo não tem timeit. Usada nas fases 1 e 3. |
+
+### Captura da SAÍDA (dinâmica — processo-filho `--harness`)
+
+| Função | O que faz |
+|---|---|
+| `_canonical(v, depth)` | Serializa o retorno da função de forma canônica e sem endereço de memória (nós AST → `ast.dump`; objetos → `Tipo({__dict__})`; sets ordenados; coleções recursivas), para que resultados iguais de processos diferentes batam byte a byte. |
+| `_harness(path_str)` | Corpo do filho da fase 1: (1) substitui `timeit.timeit` por versão que chama o lambda **uma vez** e captura o retorno (devolvendo 0.0); (2) roda o arquivo com `runpy.run_path`, stdout descartado; (3) canoniza o retorno, tira hash md5 e imprime a linha-protocolo `__OUTPUT__\t<hash>\t<preview>`. Também libera o `repr` de inteiros gigantes. |
+
+### FASE 1 — verificação
+
+| Função | O que faz |
+|---|---|
+| `_saida_de(path, timeout)` | Lado pai do harness: dispara `python benchmark.py --harness <arq>` (removendo `BENCH_DURACAO` do ambiente, garantindo o ramo clássico interceptável) e extrai `(hash, preview)` da linha `__OUTPUT__`; `ERRO`/`TIMEOUT` em falha. |
+| `fase_verificacao(files, timeout)` | Coleta entrada+saída de cada arquivo, agrupa por `base_de`, ordena `recursivo | output | nonrec` e emite o veredito por função (`OK`/`DIVERGE`/`incompleto`). Devolve o nº de divergências (o `main` só avisa, não interrompe). |
+
+### FASE 2 — benchmark
+
+| Função | O que faz |
+|---|---|
+| `_medir(path, timeout, duracao)` | Roda **um** script em subprocesso real; o `duracao` escolhe o ramo do driver condicional via ambiente: `None` remove `BENCH_DURACAO` (clássico, parse `TIMING_RE`) e `T` injeta `BENCH_DURACAO=T` (piso, parse `EXEC_RE`). Sempre com `PYTHONIOENCODING=utf-8`. Devolve a linha do CSV com `status`. |
+| `fase_benchmark(files, timeout, duracao)` | Laço de `_medir` sobre todos os arquivos, print por script e escrita do CSV do modo (`benchmark_results.csv` ou `execucoes_por_tempo.csv`). Devolve `{arquivo: row}` para a fase 3. |
+
+### FASE 3 — planilha
+
+| Função | O que faz |
+|---|---|
+| `_formula_sobrecarga(rotulo)` | Fabrica a fórmula `=IFERROR(ROUND(INDEX/MATCH ÷ INDEX/MATCH, 3), "-")` que localiza as linhas pelo rótulo da coluna A (imune a reordenação). |
+| `_tempo(dados, arquivo)` | Lookup seguro: `tempo_ms_por_chamada` como float, ou `None` (→ `-` na célula) se o arquivo falhou. |
+| `_qtd_iter(dados, base)` | `qtd_execucoes` da função, tentando rec → tail → nonrec (primeira versão com dado válido). |
+| `fase_planilha(dados)` | Monta o `tempos_execucao.xlsx` do zero: rótulos, tempos das 3 versões, fórmulas de sobrecarga, iterações, parâmetros (`entrada_de`), complexidade/obs das constantes, e o visual manual. |
+
+### Orquestração
+
+| Função | O que faz |
+|---|---|
+| `main()` | Parseia `--timeout` / `--duracao` / `--so-planilha` / diretório e escolhe a rota: só-planilha (CSV → fase 3), clássico (fases 1→2→3) ou por tempo (fases 1→2). |
+| bloco `__main__` | Configura stdout UTF-8 e despacha o papel do processo: `--harness` → filho da fase 1 (`_harness`); senão → pai (`main`). Um arquivo só faz os dois lados do protocolo. |
+
+**Resumo do design:** o script explora a "API" implícita dos benchmarks (o
+`timeit.timeit(lambda: f(args))` + o print padronizado) por três vias —
+**lendo** o fonte (AST → entradas), **interceptando** o timeit em subprocesso
+(→ saídas, fase 1) e **executando** de verdade com o ambiente escolhendo o
+ramo do driver (→ tempos ou iterações, fase 2) — sempre em subprocesso
+isolado, para que erro ou patch de um script não contamine os demais.
+
 ## Decisões de projeto
 
 - **Subprocesso por script**: um import quebrado, estouro de pilha ou loop

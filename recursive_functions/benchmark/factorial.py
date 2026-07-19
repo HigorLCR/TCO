@@ -16,6 +16,12 @@ def tail_factorial(n, a):
 
 qtd_execucoes = 100
 
+input_list = []
+input_list.append((n1, n2))
+
+for n1, n2 in input_list:
+    print(f"tail_factorial({n1}, {n2}) = {tail_factorial(n1, n2)}")
+
 
 # ===== driver condicional (classico x por tempo) =====
 # Sem BENCH_DURACAO no ambiente: modo CLASSICO (qtd_execucoes iteracoes -> tempo).

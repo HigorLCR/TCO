@@ -142,7 +142,9 @@ def entrada_de(path: Path) -> str:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except (SyntaxError, OSError):
         return "-"
+    #coleta todas as atribuições no nivel raiz do script
     amap = _assignments(tree)
+    #coleta a chamada do timeit (lambda) e extrai seus argumentos, substituindo nomes por valores
     call = _achar_timeit_lambda(tree)
     if call is None:
         return "-"
@@ -184,6 +186,7 @@ def _harness(path_str: str) -> None:
     real = timeit.timeit
     cap = {}
 
+    #monkey patch do timeit.timeit para capturar a saida da chamada (1x) e evitar loops longos
     def patched(stmt="pass", setup="pass", timer=timeit.default_timer,
                 number=1000000, globals=None):
         if callable(stmt):
@@ -196,6 +199,7 @@ def _harness(path_str: str) -> None:
     timeit.timeit = patched
     buf = io.StringIO()
     try:
+        #descarta IO gerado pela execução do script (print, etc) e captura apenas o resultado do timeit
         with contextlib.redirect_stdout(buf):
             runpy.run_path(str(path), run_name="__main__")
     except Exception as e:
@@ -230,8 +234,10 @@ def _saida_de(path: Path, timeout: int) -> tuple[str, str]:
         )
     except subprocess.TimeoutExpired:
         return "TIMEOUT", f"(>{timeout}s)"
+    #Exemplo de output do harness: "__OUTPUT__\t<hash>\t<preview>"
     m = re.search(r"^__OUTPUT__\t(\S+)\t(.*)$", proc.stdout, re.MULTILINE)
     if m:
+        #retorna hash e preview da saida se encontrados
         return m.group(1), m.group(2)
     ultimo = proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else "sem saida"
     return "ERRO", ultimo[:70]
@@ -250,6 +256,8 @@ def fase_verificacao(files: list[Path], timeout: int) -> int:
             "entrada": entrada_de(f), "saida_hash": h, "saida_preview": prev,
         })
 
+    # agrupa por funcao-base e compara entradas/saidas entre versoes
+    # {"sum": [{"arq": sum}, {"arq": output_sum}], ...}
     por_base = defaultdict(list)
     for r in resultados:
         por_base[r["base"]].append(r)
@@ -353,9 +361,13 @@ def _medir(path: Path, timeout: int, duracao: float | None = None) -> dict:
     return row
 
 
-def fase_benchmark(files: list[Path], timeout: int,
-                   duracao: float | None = None) -> dict[str, dict]:
+def fase_benchmark(
+    files: list[Path], 
+    timeout: int,
+    duracao: float | None = None
+) -> dict[str, dict]:
     """Mede (classico ou por tempo), grava o CSV e devolve {arquivo: row}."""
+    
     if duracao is None:
         print(f"\n{SEP}\n  FASE 2 - BENCHMARK (timeit completo)  timeout {timeout}s/script\n{SEP}\n")
         csv_out = CSV_OUT
@@ -559,6 +571,7 @@ def main() -> None:
     duracao = None
     so_planilha = False
     i = 0
+    #coleta de argumentos opcionais
     while i < len(args):
         if args[i] == "--timeout" and i + 1 < len(args):
             timeout = int(args[i + 1])
