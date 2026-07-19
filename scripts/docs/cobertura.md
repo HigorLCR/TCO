@@ -73,7 +73,10 @@ python scripts/cobertura.py [diretorio] [--matriz]
 
    Seções: cobertura global (`X/110, %`), tabela da demonstrativa aplicada,
    barra por categoria com faltantes, lista consolidada dos não cobertos e
-   cobertura por arquivo.
+   cobertura por arquivo **acumulada** — na mesma ordem (alfabética) em que a
+   planilha de cobertura atribui "quem identificou cada nó primeiro", cada
+   arquivo mostra os nós-alvo novos que trouxe (`+N`) e o acumulado até ali;
+   a última linha fecha na cobertura global.
 
 4. **Matriz** (`gravar_matriz`): linhas = **união dos nós presentes**
    (ordenada — não se limita aos 110 alvo), colunas = arquivos, célula `X`

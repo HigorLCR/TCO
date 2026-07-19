@@ -5,7 +5,7 @@ opcionalmente, a matriz node_matrix.txt consumida pelo planilha_cobertura.py.
 Um unico parse (ast.parse + ast.walk por arquivo) alimenta as duas saidas:
 
   RELATORIO (sempre): cobertura dos 110 nos-alvo (TARGET_NODES) -- global,
-    por categoria da gramatica ASDL, nos faltantes e por arquivo.
+    por categoria da gramatica ASDL, nos faltantes e acumulada por arquivo.
 
   MATRIZ (--matriz): grava arquivos/txt/node_matrix.txt -- linhas = uniao dos
     nos presentes (ordenada), colunas = arquivos, celula 'X'/'.'. Formato
@@ -205,13 +205,17 @@ def relatorio(directory: Path, cobertura: dict[str, set[str]],
         if uncovered:
             print(f"  [{category}] {', '.join(uncovered)}")
 
+    # progressiva, na mesma ordem da planilha de cobertura: cada arquivo
+    # mostra os nos-alvo NOVOS que trouxe e o acumulado ate ali
     print(f"\n{SEP}")
-    print("  Cobertura por arquivo")
+    print("  Cobertura por arquivo (acumulada)")
     print(f"{SEP}\n")
+    acumulado: set[str] = set()
     for fname, nodes in cobertura.items():
-        alvo = nodes & ALL_TARGET
-        pct = len(alvo) / total * 100
-        print(f"  {fname:<45} {len(alvo):>3}/{total}  ({pct:5.1f}%)")
+        novos = (nodes & ALL_TARGET) - acumulado
+        acumulado |= novos
+        pct = len(acumulado) / total * 100
+        print(f"  {fname:<45} +{len(novos):>2}  {len(acumulado):>3}/{total}  ({pct:5.1f}%)")
     print(f"\n{SEP}")
 
 
