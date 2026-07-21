@@ -15,10 +15,17 @@ import sys
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 
-from benchmark import BENCH, CSV_OUT, entrada_de
-
-XLSX_DIR = CSV_OUT.parent.parent / "xlsx"
-XLSX_OUT = XLSX_DIR / "tempos_execucao.xlsx"
+from consts import (
+    ARQUIVO_CSV,
+    BENCH,
+    COL_ARQUIVO,
+    COL_MS,
+    COL_QTD,
+    COL_STATUS,
+    XLSX_DIR,
+    XLSX_TEMPOS,
+)
+from utils import entrada_de, versoes_de
 
 ABA = "Tempos_Execucao"
 ALTURA = 22.5
@@ -104,16 +111,17 @@ FORMULA_SOB = _formula_sobrecarga(ROTULO_NONREC)
 def _tempo(dados: dict, arquivo: str):
     """tempo_ms_por_chamada (float) ou None se ausente/sem timing."""
     row = dados.get(arquivo)
-    if row is None or row["status"] != "ok" or not row["tempo_ms_por_chamada"]:
+    if row is None or row[COL_STATUS] != "ok" or not row[COL_MS]:
         return None
-    return float(row["tempo_ms_por_chamada"])
+    return float(row[COL_MS])
 
 
 def _qtd_iter(dados: dict, base: str):
-    for arq in (f"{base}.py", f"output_{base}.py", f"{base}_nonrec.py"):
+    """N do modo classico: a primeira versao da funcao que tiver medicao boa."""
+    for arq in versoes_de(base):
         row = dados.get(arq)
-        if row and row["status"] == "ok" and row["qtd_execucoes"]:
-            return int(row["qtd_execucoes"])
+        if row and row[COL_STATUS] == "ok" and row[COL_QTD]:
+            return int(row[COL_QTD])
     return None
 
 
@@ -130,11 +138,12 @@ def gerar_planilha(dados: dict[str, dict]) -> None:
         c.alignment = LEFT
 
     for col, base in COLUNA_PARA_BASE.items():
-        rec = _tempo(dados, f"{base}.py")
-        nonrec = _tempo(dados, f"{base}_nonrec.py")
-        tail = _tempo(dados, f"output_{base}.py")
+        versoes = versoes_de(base)
+        rec = _tempo(dados, versoes.recursivo)
+        nonrec = _tempo(dados, versoes.nonrec)
+        tail = _tempo(dados, versoes.output)
         iteracoes = _qtd_iter(dados, base)
-        params = entrada_de(BENCH / f"{base}.py")
+        params = entrada_de(BENCH / versoes.recursivo)
 
         ws[f"{col}1"] = HEADERS.get(col, base)
         ws[f"{col}{LINHA_REC}"] = rec if rec is not None else "-"
@@ -167,16 +176,16 @@ def gerar_planilha(dados: dict[str, dict]) -> None:
     ws.freeze_panes = "B2"
 
     XLSX_DIR.mkdir(parents=True, exist_ok=True)
-    wb.save(XLSX_OUT)
-    print(f"  Aba '{ABA}' com {len(COLUNA_PARA_BASE)} funcoes  ->  {XLSX_OUT}")
+    wb.save(XLSX_TEMPOS)
+    print(f"  Aba '{ABA}' com {len(COLUNA_PARA_BASE)} funcoes  ->  {XLSX_TEMPOS}")
 
 
 def main() -> None:
-    if not CSV_OUT.exists():
-        print(f"CSV nao encontrado: {CSV_OUT} (rode scripts/benchmark.py antes)")
+    if not ARQUIVO_CSV.exists():
+        print(f"CSV nao encontrado: {ARQUIVO_CSV} (rode scripts/benchmark.py antes)")
         sys.exit(1)
-    with open(CSV_OUT, newline="", encoding="utf-8") as fp:
-        dados = {row["arquivo"]: row for row in csv.DictReader(fp)}
+    with open(ARQUIVO_CSV, newline="", encoding="utf-8") as fp:
+        dados = {row[COL_ARQUIVO]: row for row in csv.DictReader(fp)}
     gerar_planilha(dados)
 
 

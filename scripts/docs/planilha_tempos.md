@@ -7,9 +7,11 @@ do modo clássico do `benchmark.py`) na planilha
 `arquivos/xlsx/tempos_execucao.xlsx` (aba `Tempos_Execucao`), montada do zero
 com `openpyxl.Workbook()` — sem template externo.
 
-Fica no **fim da cadeia** do benchmark: não mede nada — os tempos vêm do CSV.
-A única leitura de fonte é a linha `Parametros`, extraída por AST via
-`entrada_de` (importada do `benchmark.py`). Se os benchmarks mudaram, rode
+Fica no **fim da cadeia** do benchmark: não mede nada — os tempos vêm do CSV
+(e a coluna `qtd_execucoes` de lá vem do dict central `QTD_EXECUCOES`, em
+`consts/execucoes.py`). A única leitura de fonte é a linha `Parametros`, extraída
+por AST via `entrada_de` (importada de `utils`; lê a chamada dentro do
+`def chamada()` de cada arquivo). Se os benchmarks mudaram, rode
 `benchmark.py` antes.
 
 ## Uso
@@ -18,7 +20,12 @@ A única leitura de fonte é a linha `Parametros`, extraída por AST via
 python scripts/planilha_tempos.py
 ```
 
-Sem parâmetros — caminhos fixos no script.
+Sem parâmetros — os caminhos vêm de [`consts`](../consts/caminhos.py).
+
+Este script **não importa o `benchmark.py`**: o que os dois compartilham mora
+em [`consts`](../consts/caminhos.py) (o caminho do CSV) e em
+[`utils`](../utils/entrada_ast.py) (o `entrada_de`), então a ligação entre
+eles é o CSV, não um import.
 
 ## Entradas e saídas
 
@@ -47,7 +54,7 @@ Layout das linhas (rótulo na coluna A):
 5  Sobrecarga_Tail             =  fórmula rec/tail
 6  Sobrecarga                  =  fórmula rec/nonrec
 7  Numero_Iteracoes            <- qtd_execucoes
-8  Parametros                  <- extração AST (entrada_de do benchmark.py)
+8  Parametros                  <- extração AST (entrada_de, de utils)
 9  Complexidade de resolução   <- constante
 10 Obs                         <- constante
 ```
