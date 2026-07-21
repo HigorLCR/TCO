@@ -30,9 +30,7 @@ import ast
 import sys
 from pathlib import Path
 
-BASE = Path(__file__).parent.parent
-BENCH = BASE / "recursive_functions" / "benchmark"
-OUT = BASE / "arquivos" / "txt" / "node_matrix.txt"
+from consts import BASE, BENCH, EXT_PY, MATRIZ_NOS, PREFIXO_OUTPUT, SUFIXO_NONREC
 
 # 110 nos recomendados, organizados por categoria
 TARGET_NODES: dict[str, list[str]] = {
@@ -109,18 +107,19 @@ def no_demonstrativo(nome_arquivo: str) -> str | None:
     Deduz pelo sufixo: o no cujo nome em minusculas casa com o sufixo.
     Ex.: 'manipula_no_functiontype.py' -> 'FunctionType'.
     """
-    stem = nome_arquivo[:-3] if nome_arquivo.endswith(".py") else nome_arquivo
+    stem = nome_arquivo[:-len(EXT_PY)] if nome_arquivo.endswith(EXT_PY) else nome_arquivo
     if not stem.startswith(PREFIXO_MANIPULA):
         return None
     return NO_POR_MINUSCULO.get(stem[len(PREFIXO_MANIPULA):])
 
 
 def is_source(p: Path) -> bool:
+    """So a versao recursiva original: exclui as derivadas output_/_nonrec."""
     n = p.name
     return (
-        p.suffix == ".py"
-        and not n.endswith("_nonrec.py")
-        and not n.startswith("output_")
+        p.suffix == EXT_PY
+        and not n.endswith(SUFIXO_NONREC + EXT_PY)
+        and not n.startswith(PREFIXO_OUTPUT)
     )
 
 
@@ -232,11 +231,11 @@ def gravar_matriz(cobertura: dict[str, set[str]]) -> None:
         linhas.append(no + COL_SEP + COL_SEP.join(celulas))
 
     conteudo = "﻿" + EOL.join(linhas) + EOL
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUT, "w", encoding="utf-16-le", newline="") as f:
+    MATRIZ_NOS.parent.mkdir(parents=True, exist_ok=True)
+    with open(MATRIZ_NOS, "w", encoding="utf-16-le", newline="") as f:
         f.write(conteudo)
 
-    print(f"\n  Matriz: {len(todos_nos)} nos x {len(nomes)} arquivos  ->  {OUT}")
+    print(f"\n  Matriz: {len(todos_nos)} nos x {len(nomes)} arquivos  ->  {MATRIZ_NOS}")
 
 
 def main() -> None:

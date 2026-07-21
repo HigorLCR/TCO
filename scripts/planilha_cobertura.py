@@ -18,16 +18,10 @@ Uso:
     python scripts/planilha_cobertura.py
 """
 
-import sys
-from pathlib import Path
-
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 
-BASE = Path(__file__).parent.parent
-SAIDA_DIR = BASE / "arquivos" / "xlsx"  # diretorio padrao de saida dos xlsx gerados
-SAIDA = SAIDA_DIR / "nos_ast_cobertos.xlsx"
-MATRIX = BASE / "arquivos" / "txt" / "node_matrix.txt"
+from consts import MATRIZ_NOS, XLSX_COBERTURA, XLSX_DIR
 
 ABA = "Nós_AST_Cobertos"
 ALTURA = 22.5
@@ -109,7 +103,7 @@ DISPLAY_TO_STEM = {
 
 def carregar_cobertura() -> dict[str, set[str]]:
     """node_matrix.txt -> {stem_do_arquivo: set(nos cobertos)}."""
-    text = MATRIX.read_bytes().decode("utf-16")
+    text = MATRIZ_NOS.read_bytes().decode("utf-16")
     linhas = [l for l in text.split("\r\n") if l]
     arquivos = linhas[0].split("|")[1:]  # ex.: 'factorial.py'
     cov = {a: set() for a in arquivos}
@@ -193,10 +187,10 @@ def main() -> None:
     ws.column_dimensions["A"].width = 30
     ws.freeze_panes = "B2"
 
-    SAIDA_DIR.mkdir(parents=True, exist_ok=True)
-    wb.save(SAIDA)
+    XLSX_DIR.mkdir(parents=True, exist_ok=True)
+    wb.save(XLSX_COBERTURA)
 
-    print(f"Arquivo criado : {SAIDA}")
+    print(f"Arquivo criado : {XLSX_COBERTURA}")
     print(f"Aba            : {ABA}")
     print(f"Funcoes        : {len(funcoes)} (linhas 2..{ultima})")
     print(f"Nos (colunas)  : {len(NODE_HEADERS)}")
