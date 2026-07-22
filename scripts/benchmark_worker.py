@@ -98,6 +98,18 @@ def operar(modo: str, path: Path, param: str | None) -> dict:
 
 
 if __name__ == "__main__":
+    # Processo separado, e nao chamada de funcao. Quatro motivos:
+    #   1. o arquivo medido pode estourar a pilha em C: morte sem excecao, que
+    #      nenhum try/except alcanca (RecursionError, esse sim, e capturavel);
+    #   2. pode nao terminar, e nao existe preempcao em Python -- so um processo
+    #      se mata por timeout;
+    #   3. cada arquivo suja estado global (sys.path, setrecursionlimit,
+    #      sys.modules): num processo so, o resultado dependeria da ordem;
+    #   4. medicao justa: interpretador novo por arquivo, sem heap sujo nem
+    #      cache quente dos anteriores.
+    # E como sao dois processos, a resposta nao pode ser um return: entre
+    # processos so trafegam bytes, dai o JSON no stdout.
+    
     sys.set_int_max_str_digits(0)  # nao limita repr/print de inteiros gigantes
 
     # a partir daqui stdout e do arquivo medido e vai para o lixo; o resultado
@@ -106,7 +118,11 @@ if __name__ == "__main__":
     sys.stdout = io.StringIO()
     try:
         resultado = operar(
-            sys.argv[1], Path(sys.argv[2]), sys.argv[3] if len(sys.argv) > 3 else None)
+            sys.argv[1],                                   # modo: verificar | classico | tempo
+            Path(sys.argv[2]),                             # arquivo medido
+            sys.argv[3] if len(sys.argv) > 3 else None     # N (classico) ou T (tempo)
+        )
+        
     except BaseException as e:  # inclui RecursionError e SystemExit do arquivo medido
         resultado = {"status": "erro", "msg": f"{type(e).__name__}: {e}"[:120]}
 
