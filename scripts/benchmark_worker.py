@@ -18,6 +18,7 @@ import ast
 import hashlib
 import io
 import json
+import runpy
 import sys
 import timeit
 from pathlib import Path
@@ -46,8 +47,7 @@ def _canonical(v, depth=0) -> str:
 def _carregar_chamada(path: Path):
     """Executa o modulo do arquivo e devolve a sua chamada() (None se nao existir)."""
     sys.path.insert(0, str(path.parent))  # paridade com `python arquivo.py`
-    g = {"__name__": "__main__", "__file__": str(path)}
-    exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), g)
+    g = runpy.run_path(str(path), run_name="__main__")
     chamada = g.get("chamada")
     return chamada if callable(chamada) else None
 
