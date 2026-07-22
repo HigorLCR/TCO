@@ -67,8 +67,9 @@ TIMEOUT_PADRAO = 120  # segundos por worker
 # ordem de exibicao das versoes de cada funcao
 ORDEM_TIPO = {"recursivo": 0, "output": 1, "nonrec": 2}
 
+# ==================== Auxiliares ====================
 
-def classify(name: str) -> str:
+def classifica(name: str) -> str:
     if name.startswith(PREFIXO_OUTPUT):
         return "output"
     if name.endswith(SUFIXO_NONREC + EXT_PY):
@@ -100,8 +101,12 @@ def executar(modo: str, path: Path, timeout: int, param=None) -> dict:
         cmd.append(str(param))
     try:
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=timeout,
+            cmd, 
+            capture_output=True, 
+            text=True, 
+            encoding="utf-8",
+            errors="replace", 
+            timeout=timeout,
         )
     except subprocess.TimeoutExpired:
         return {"status": "timeout", "msg": f">{timeout}s"}
@@ -136,7 +141,7 @@ class Versao(NamedTuple):
     saida: Saida
 
 
-def function_output(path: Path, timeout: int) -> Saida:
+def coleta_saida(path: Path, timeout: int) -> Saida:
     """Roda o worker 'verificar' e devolve a Saida da chamada() do arquivo."""
     res = executar("verificar", path, timeout)
     match res.get("status", "erro"):
@@ -150,7 +155,7 @@ def function_output(path: Path, timeout: int) -> Saida:
             return Saida("ERRO", res.get("msg", "sem saida")[:70], comparavel=False)
 
 
-def _comparar(versoes: list[Versao]) -> tuple[str, str]:
+def compara_versao(versoes: list[Versao]) -> tuple[str, str]:
     """Julga um grupo de versoes: devolve (categoria, veredito legivel).
 
     categoria: 'sozinha' (nada a comparar) | 'igual' | 'divergente'.
@@ -158,9 +163,11 @@ def _comparar(versoes: list[Versao]) -> tuple[str, str]:
     if len(versoes) < 2:
         return "sozinha", "(1 versao, nada a comparar)"
 
+    # utiliza sets para comparar entrada/saida 
     entrada_ok = len({v.entrada for v in versoes}) == 1
     completo = all(v.saida.comparavel for v in versoes)
     saida_ok = completo and len({v.saida.hash for v in versoes}) == 1
+
     if entrada_ok and saida_ok:
         return "igual", "OK  (entrada e saida iguais)"
 
@@ -169,7 +176,7 @@ def _comparar(versoes: list[Versao]) -> tuple[str, str]:
                           f" | saida: {saida_txt})")
 
 
-def _printa_grupo(base: str, versoes: list[Versao], veredito: str) -> None:
+def printa_grupo(base: str, versoes: list[Versao], veredito: str) -> None:
     """Bloco do relatorio de uma funcao-base; so repete a entrada se ela divergir."""
     print(f"  {base}  ->  {veredito}")
     entradas = {v.entrada for v in versoes}
@@ -194,10 +201,10 @@ def fase_verificacao(files: list[Path], timeout: int) -> int:
         print(f"  [{i:>2}/{len(files)}] {arquivo.name}", flush=True)
         versoes.append(Versao(
             arquivo=arquivo.name,
-            tipo=classify(arquivo.name),
+            tipo=classifica(arquivo.name),
             base=base_de(arquivo.name),
             entrada=entrada_de(arquivo),
-            saida=function_output(arquivo, timeout),
+            saida=coleta_saida(arquivo, timeout),
         ))
 
     # agrupa por funcao-base -> {"sum": [sum.py, output_sum.py, sum_nonrec.py], ...}
@@ -209,9 +216,9 @@ def fase_verificacao(files: list[Path], timeout: int) -> int:
     contagem = Counter()
     for base in sorted(por_base):
         grupo = sorted(por_base[base], key=lambda v: ORDEM_TIPO.get(v.tipo, 9))
-        categoria, veredito = _comparar(grupo)
+        categoria, veredito = compara_versao(grupo)
         contagem[categoria] += 1
-        _printa_grupo(base, grupo, veredito)
+        printa_grupo(base, grupo, veredito)
 
     print(SEP)
     print(f"  {contagem['igual']} OK | {contagem['divergente']} divergentes"
@@ -230,11 +237,16 @@ def _medir(path: Path, timeout: int, duracao: float | None = None) -> dict:
     """
     if duracao is None:
         row = {
-            COL_ARQUIVO: path.name, COL_TIPO: classify(path.name),
-            COL_QTD: "", COL_TOTAL_S: "", COL_MS: "", COL_STATUS: "",
+            COL_ARQUIVO: path.name, 
+            COL_TIPO: classifica(path.name),
+            COL_QTD: "", 
+            COL_TOTAL_S: "", 
+            COL_MS: "", 
+            COL_STATUS: "",
         }
-        n = QTD_EXECUCOES.get(base_de(path.name), 0)
-        res = executar("classico", path, timeout, n)
+        num_iteracoes = QTD_EXECUCOES.get(base_de(path.name), 0)
+
+        res = executar("classico", path, timeout, num_iteracoes)
         if res.get("status") == "ok":
             row.update({
                 COL_QTD: res["qtd"],
@@ -244,9 +256,13 @@ def _medir(path: Path, timeout: int, duracao: float | None = None) -> dict:
             })
     else:
         row = {
-            COL_ARQUIVO: path.name, COL_TIPO: classify(path.name),
-            COL_PISO_S: duracao, COL_ITERACOES: "", COL_TOTAL_S: "",
-            COL_MS: "", COL_STATUS: "",
+            COL_ARQUIVO: path.name, 
+            COL_TIPO: classifica(path.name),
+            COL_PISO_S: duracao, 
+            COL_ITERACOES: "", 
+            COL_TOTAL_S: "",
+            COL_MS: "", 
+            COL_STATUS: "",
         }
         res = executar("tempo", path, timeout, duracao)
         if res.get("status") == "ok":
