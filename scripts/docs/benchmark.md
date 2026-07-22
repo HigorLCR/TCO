@@ -22,7 +22,7 @@ A planilha de tempos é gerada à parte por
 ## Uso
 
 ```
-python scripts/benchmark.py [diretorio|arquivo] [--timeout segundos]
+python scripts/benchmark.py [diretorio] [--timeout segundos]
 python scripts/benchmark.py --duracao 3             # modo por tempo (3 s/script)
 ```
 
@@ -37,7 +37,7 @@ python scripts/benchmark_worker.py tempo     <arquivo> <T>
 
 | Parâmetro | Padrão | Descrição |
 |---|---|---|
-| `diretorio\|arquivo` | `recursive_functions/benchmark/` | diretório (pipeline completo) ou **um arquivo** (execução avulsa: mede só ele e **não grava CSV**) |
+| `diretorio` | `recursive_functions/benchmark/` | diretório com os arquivos medidos; roda o pipeline completo sobre os `.py` dele |
 | `--timeout` | 120 s | limite por worker (subprocesso) |
 | `--duracao` | — (clássico) | ativa o modo por tempo, com T segundos por script |
 
@@ -75,8 +75,8 @@ isolamento — estouro de pilha e travamento derrubam o filho, não o pipeline.
 
 Sempre: `sys.set_int_max_str_digits(0)` (libera repr/print de inteiros
 gigantes — sem isso `factorial.py` quebra no Python ≥3.12), `sys.path` com o
-diretório do arquivo, e `compile()`+`exec()` do fonte em um namespace com
-`__name__ == "__main__"`. O `setrecursionlimit` do módulo vale na medição
+diretório do arquivo, e `runpy.run_path(..., run_name="__main__")` para
+executar o módulo. O `setrecursionlimit` do módulo vale na medição
 porque tudo roda no mesmo processo. Depois:
 
 - `verificar` — executa `chamada()` **uma vez**, canoniza o retorno
@@ -120,7 +120,7 @@ Para cada arquivo, duas coletas independentes:
 
    Nada é executado nesta coleta.
 
-2. **Saída — dinâmica, via worker** (`function_output` → modo `verificar`):
+2. **Saída — dinâmica, via worker** (`coleta_saida` → modo `verificar`):
    executa `chamada()` 1× em subprocesso; o retorno vira uma representação
    **canônica** (`_canonical`) e um hash md5 truncado, empacotados num
    `Saida(hash, preview, comparavel)` — `comparavel=False` marca os casos em
@@ -135,7 +135,7 @@ Para cada arquivo, duas coletas independentes:
 
 3. **Relatório agrupado**: as versões são agrupadas pela função-base
    (`base_de` remove `output_` e `_nonrec`) e impressas na ordem
-   `recursivo | output | nonrec`. `_comparar` dá o veredito e `_printa_grupo`
+   `recursivo | output | nonrec`. `compara_versao` dá o veredito e `printa_grupo`
    imprime o bloco:
    - `OK` — entradas iguais e hashes de saída iguais;
    - `DIVERGE` — indica se divergiu a entrada, a saída, ou se ficou
@@ -145,7 +145,7 @@ Para cada arquivo, duas coletas independentes:
 
 ### FASE 2 — Benchmark (clássico ou por tempo)
 
-Para cada arquivo, `_medir` dispara um worker:
+Para cada arquivo, `medir` dispara um worker:
 
 - **Modo clássico** (padrão): worker no modo `classico <arq> N`, com
   `N = QTD_EXECUCOES[base]`. Colunas `COLUNAS_CSV` (`arquivo, tipo,
@@ -170,20 +170,20 @@ Mapa do fluxo (do ponto de entrada às folhas):
 ```
 python benchmark.py
         │
-      main() ── parseia flags; alvo = diretório (pipeline) ou arquivo (avulso)
+      main() ── parseia flags; alvo = diretório com os arquivos medidos
         │
         ├─ 1) fase_verificacao(files)          "a comparação é justa?"
         │       └─ por arquivo: entrada_de() [AST, no proprio processo]
-        │                     + function_output() ─┐
+        │                     + coleta_saida() ────┐
         │                                          │
         └─ 2) fase_benchmark(files, duracao)       │  "mede de verdade"
-                └─ por arquivo: _medir() ──────────┤
+                └─ por arquivo: medir() ───────────┤
                                                    │
                                           executar(modo, arq, timeout, param)
                                                    │  subprocess + timeout
                                                    ▼
                                     python benchmark_worker.py <modo> <arq> [param]
-                                       └─ operar(): exec do modulo → chamada()
+                                       └─ operar(): runpy do modulo → chamada()
                                           → JSON em stdout → volta ao pai
 ```
 
@@ -194,7 +194,7 @@ clássico).
 
 | Função | O que faz |
 |---|---|
-| `classify(name)` | Tipo do arquivo pela convenção de nomes: `output_*` → `output`, `*_nonrec.py` → `nonrec`, senão `recursivo`. |
+| `classifica(name)` | Tipo do arquivo pela convenção de nomes: `output_*` → `output`, `*_nonrec.py` → `nonrec`, senão `recursivo`. |
 | `base_de(name)` | Reduz qualquer versão à função-base (tira `.py`, `output_`, `_nonrec`); agrupa as versões na fase 1 e indexa `QTD_EXECUCOES`. |
 
 Os dois aplicam a convenção de nome definida em
@@ -222,7 +222,7 @@ Cadeia usada por `entrada_de()` para descobrir os argumentos reais da chamada:
 | Função | O que faz |
 |---|---|
 | `_canonical(v, depth)` | Serializa o retorno da função de forma canônica e sem endereço de memória (nós AST → `ast.dump`; objetos → `Tipo({__dict__})`; sets ordenados; coleções recursivas), para que resultados iguais de processos diferentes batam byte a byte. |
-| `_carregar_chamada(path)` | `compile()`+`exec()` do módulo em namespace com `__name__=="__main__"` e devolve a `chamada` do namespace (`None` se não houver). |
+| `_carregar_chamada(path)` | `runpy.run_path(..., run_name="__main__")` do módulo e devolve a `chamada` dos globais resultantes (`None` se não houver). |
 | `_verificar(chamada)` | Roda 1×, canoniza e resume em hash md5 (10 chars) + preview de ≤70 chars. |
 | `_classico(chamada, n)` | `timeit.timeit(chamada, number=n)`; `n <= 0` → `sem_qtd`. |
 | `_por_tempo(chamada, piso)` | Lotes de iterações até a soma dos tempos alcançar o piso; devolve iterações exatas. |
@@ -241,23 +241,23 @@ Cadeia usada por `entrada_de()` para descobrir os argumentos reais da chamada:
 |---|---|
 | `Saida` | `NamedTuple(hash, preview, comparavel)`. `comparavel=False` ⇒ não houve saída para comparar; `hash`/`preview` valem só como texto do relatório. |
 | `Versao` | `NamedTuple(arquivo, tipo, base, entrada, saida)`: uma versão de uma função-base, já com entrada (AST) e saída (worker). |
-| `function_output(path, timeout)` | Wrapper de `executar("verificar", ...)` → `Saida`; mapeia `sem_chamada` → `n/d`, `timeout` → `TIMEOUT`, falha → `ERRO`, todos com `comparavel=False`. |
-| `_comparar(versoes)` | Só decide: devolve `(categoria, veredito)` com categoria `sozinha`/`igual`/`divergente`. Não imprime nada. |
-| `_printa_grupo(base, versoes, veredito)` | Só imprime o bloco de uma função-base; repete a entrada por versão apenas quando ela diverge. |
+| `coleta_saida(path, timeout)` | Wrapper de `executar("verificar", ...)` → `Saida`; mapeia `sem_chamada` → `n/d`, `timeout` → `TIMEOUT`, falha → `ERRO`, todos com `comparavel=False`. |
+| `compara_versao(versoes)` | Só decide: devolve `(categoria, veredito)` com categoria `sozinha`/`igual`/`divergente`. Não imprime nada. |
+| `printa_grupo(base, versoes, veredito)` | Só imprime o bloco de uma função-base; repete a entrada por versão apenas quando ela diverge. |
 | `fase_verificacao(files, timeout)` | Monta as `Versao`, agrupa por `base_de`, ordena `recursivo | output | nonrec` e delega julgamento/impressão. Devolve o nº de divergências (o `main` só avisa, não interrompe). |
 
 ### FASE 2 — benchmark
 
 | Função | O que faz |
 |---|---|
-| `_medir(path, timeout, duracao)` | Dispara `executar("classico", ..., N)` ou `("tempo", ..., T)` e traduz o dict do worker na linha do CSV (com `status`). |
-| `fase_benchmark(files, timeout, duracao, escrever_csv)` | Laço de `_medir`, print por script e escrita do CSV do modo (`benchmark_results.csv` ou `execucoes_por_tempo.csv`); `escrever_csv=False` no modo arquivo-único (não sobrescreve o CSV completo). |
+| `medir(path, timeout, duracao)` | Dispara `executar("classico", ..., N)` ou `("tempo", ..., T)` e traduz o dict do worker na linha do CSV (com `status`). |
+| `fase_benchmark(files, timeout, duracao)` | Laço de `medir`, print por script e escrita do CSV do modo (`benchmark_results.csv` ou `execucoes_por_tempo.csv`). |
 
 ### Orquestração
 
 | Função | O que faz |
 |---|---|
-| `main()` | Parseia `--timeout` / `--duracao` / caminho (diretório ou arquivo) e roda as fases 1→2 no modo escolhido. |
+| `main()` | Parseia `--timeout` / `--duracao` / diretório e roda as fases 1→2 no modo escolhido. |
 | bloco `__main__` | Configura stdout UTF-8 e chama `main()`. |
 
 **Resumo do design:** os arquivos expõem uma API mínima (`def chamada()` +
