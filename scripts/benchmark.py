@@ -23,10 +23,10 @@ A planilha (arquivos/xlsx/tempos_execucao.xlsx) e gerada a parte por
 scripts/planilha_tempos.py, a partir do CSV do modo classico.
 
 Uso:
-    python scripts/benchmark.py [diretorio|arquivo] [--timeout segundos]
+    python scripts/benchmark.py [diretorio] [--timeout segundos]
     python scripts/benchmark.py --duracao 3        (modo por tempo, 3 s/script)
 
-Padrao: recursive_functions/benchmark/   (arquivo unico: nao grava CSV)
+Padrao: recursive_functions/benchmark/
 """
 
 import csv
@@ -229,7 +229,7 @@ def fase_verificacao(files: list[Path], timeout: int) -> int:
 
 # ==================== FASE 2: benchmark (classico ou por tempo) ====================
 
-def _medir(path: Path, timeout: int, duracao: float | None = None) -> dict:
+def medir(path: Path, timeout: int, duracao: float | None = None) -> dict:
     """Mede um arquivo no worker e devolve a linha do CSV.
 
     duracao=None  -> classico: timeit(chamada, number=N), N de QTD_EXECUCOES.
@@ -282,7 +282,6 @@ def fase_benchmark(
     files: list[Path],
     timeout: int,
     duracao: float | None = None,
-    escrever_csv: bool = True,
 ) -> dict[str, dict]:
     """Mede (classico ou por tempo), grava o CSV e devolve {arquivo: row}."""
 
@@ -297,36 +296,33 @@ def fase_benchmark(
 
     dados = {}
     ok = erros = sem = 0
-    for i, f in enumerate(files, 1):
-        row = _medir(f, timeout, duracao)
-        dados[f.name] = row
+    for i, arquivo in enumerate(files, 1):
+        row = medir(arquivo, timeout, duracao)
+        dados[arquivo.name] = row
+
         if row[COL_STATUS] == "ok" and duracao is None:
-            print(f"  [{i:>2}/{len(files)}] {f.name:<40} "
+            print(f"  [{i:>2}/{len(files)}] {arquivo.name:<40} "
                   f"qtd {row[COL_QTD]} | {row[COL_MS]:.4f} ms/chamada")
             ok += 1
         elif row[COL_STATUS] == "ok":
-            print(f"  [{i:>2}/{len(files)}] {f.name:<40} "
+            print(f"  [{i:>2}/{len(files)}] {arquivo.name:<40} "
                   f"{row[COL_ITERACOES]:>10} iteracoes | {row[COL_TOTAL_S]:.4f}s total "
                   f"| {row[COL_MS]:.4f} ms/chamada")
             ok += 1
         elif row[COL_STATUS] in ("sem_chamada", "sem_qtd"):
-            print(f"  [{i:>2}/{len(files)}] {f.name:<40} ({row[COL_STATUS]})")
+            print(f"  [{i:>2}/{len(files)}] {arquivo.name:<40} ({row[COL_STATUS]})")
             sem += 1
         else:
-            print(f"  [{i:>2}/{len(files)}] {f.name:<40} {row[COL_STATUS]}")
+            print(f"  [{i:>2}/{len(files)}] {arquivo.name:<40} {row[COL_STATUS]}")
             erros += 1
 
-    if escrever_csv:
-        arquivo_csv.parent.mkdir(parents=True, exist_ok=True)
-        with open(arquivo_csv, "w", newline="", encoding="utf-8") as fp:
-            w = csv.DictWriter(fp, fieldnames=fieldnames)
-            w.writeheader()
-            w.writerows(dados.values())
-        destino = arquivo_csv
-    else:
-        destino = "(arquivo unico: CSV nao gravado)"
+    arquivo_csv.parent.mkdir(parents=True, exist_ok=True)
+    with open(arquivo_csv, "w", newline="", encoding="utf-8") as fp:
+        w = csv.DictWriter(fp, fieldnames=fieldnames)
+        w.writeheader()
+        w.writerows(dados.values())
 
-    print(f"\n  {ok} ok | {sem} sem chamada/qtd | {erros} erros   ->  {destino}")
+    print(f"\n  {ok} ok | {sem} sem chamada/qtd | {erros} erros   ->  {arquivo_csv}")
     return dados
 
 
@@ -352,17 +348,11 @@ def main() -> None:
                 alvo = BASE / alvo
             i += 1
 
-    # alvo pode ser um diretorio (pipeline completo) ou um arquivo unico
-    if alvo.is_file():
-        files = [alvo]
-        escrever_csv = False
-    elif alvo.is_dir():
-        files = sorted(f for f in alvo.iterdir() if f.is_file() and f.suffix == EXT_PY)
-        escrever_csv = True
-    else:
-        print(f"Caminho nao encontrado: {alvo}")
+    if not alvo.is_dir():
+        print(f"Diretorio nao encontrado: {alvo}")
         sys.exit(1)
 
+    files = sorted(f for f in alvo.iterdir() if f.is_file() and f.suffix == EXT_PY)
     if not files:
         print(f"Nenhum .py em: {alvo}")
         sys.exit(1)
@@ -375,7 +365,7 @@ def main() -> None:
         print(f"\n  [AVISO] {divergentes} funcao(oes) com entrada/saida divergente entre "
               f"versoes: a comparacao de tempos delas pode nao ser justa.\n")
 
-    fase_benchmark(files, timeout, duracao, escrever_csv)
+    fase_benchmark(files, timeout, duracao)
     if duracao is None:
         print(f"\n{SEP}\n  Concluido: verificacao + benchmark classico "
               f"(planilha: python scripts/planilha_tempos.py)\n{SEP}")
